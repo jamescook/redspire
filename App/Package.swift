@@ -11,8 +11,10 @@ let package = Package(
             resources: [
                 .copy("Battlespire/Resources/SPIRE.CFG"),
                 .copy("Battlespire/Resources/DIG.INI"),
+                .copy("Battlespire/Resources/battlespire.conf"),
                 .copy("Redguard/Resources/REDGUARD_DIG.INI"),
                 .copy("Redguard/Resources/REDGUARD_MDI.INI"),
+                .copy("Redguard/Resources/redguard.conf"),
             ]
         ),
         .testTarget(

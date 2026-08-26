@@ -5,6 +5,7 @@ enum RedguardSessionError: LocalizedError {
     case redguardExeNotFound(String)
     case rgfxExeNotFound(String)
     case cdImageNotFound
+    case confResourceMissing
 
     var errorDescription: String? {
         switch self {
@@ -16,6 +17,8 @@ enum RedguardSessionError: LocalizedError {
             return "RGFX.EXE (the game's renderer) not found in \(dir)/Redguard. Try reinstalling via the Setup Wizard."
         case .cdImageNotFound:
             return "This game also needs its second disc (for videos and music) to play. Add it under \"Second Disc\" above, then try again."
+        case .confResourceMissing:
+            return "Couldn't find this app's bundled DOSBox settings (redguard.conf). Try reinstalling the app."
         }
     }
 }
@@ -35,9 +38,16 @@ final class RedguardGameSession: ObservableObject {
 
     /// Pure: the exact DOSBox argv for a launch, matching the config
     /// confirmed working end-to-end against both the GOG package and the
-    /// raw retail disc during manual smoke testing.
-    nonisolated static func buildArguments(gameDir: String, cdImage: String, backend: Backend, fullscreen: Bool, memsizeMB: Int) -> [String] {
+    /// raw retail disc during manual smoke testing. `confPath`, when given,
+    /// is passed via -conf so the launch never silently depends on the
+    /// user's own ambient dosbox-staging.conf -- a real regression found
+    /// live: cycles left over from Battlespire-specific tuning elsewhere in
+    /// that same ambient config starved Redguard's much heavier rendering.
+    nonisolated static func buildArguments(gameDir: String, cdImage: String, backend: Backend, fullscreen: Bool, memsizeMB: Int, confPath: String?) -> [String] {
         var args: [String] = []
+        if let confPath {
+            args += ["-conf", confPath]
+        }
         if backend == .x {
             args.append("-nopromptfolder")
         }
@@ -87,7 +97,12 @@ final class RedguardGameSession: ObservableObject {
             return
         }
 
-        let args = RedguardGameSession.buildArguments(gameDir: gameDir, cdImage: cdImage, backend: backend, fullscreen: fullscreen, memsizeMB: memsizeMB)
+        guard let confPath = BundledResource.url(named: "redguard.conf")?.path else {
+            lastError = RedguardSessionError.confResourceMissing.errorDescription
+            return
+        }
+
+        let args = RedguardGameSession.buildArguments(gameDir: gameDir, cdImage: cdImage, backend: backend, fullscreen: fullscreen, memsizeMB: memsizeMB, confPath: confPath)
 
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: exe)

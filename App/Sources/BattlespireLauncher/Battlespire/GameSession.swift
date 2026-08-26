@@ -5,6 +5,7 @@ enum GameSessionError: LocalizedError {
     case backendNotInstalled(Backend)
     case gameExeNotFound(String)
     case cdImageNotFound(String)
+    case confResourceMissing
 
     var errorDescription: String? {
         switch self {
@@ -14,6 +15,8 @@ enum GameSessionError: LocalizedError {
             return "GAME.EXE not found in \(dir). Point at the folder that contains it directly."
         case .cdImageNotFound(let dir):
             return "No CD image (.ins/.cue/.iso) found in \(dir). Pick one manually if it's named unusually."
+        case .confResourceMissing:
+            return "Couldn't find this app's bundled DOSBox settings (battlespire.conf). Try reinstalling the app."
         }
     }
 }
@@ -28,9 +31,15 @@ final class GameSession: ObservableObject {
     private var process: Process?
 
     /// Pure: the exact DOSBox argv for a launch, mirroring play-battlespire.sh.
-    /// Testable without spawning DOSBox.
-    nonisolated static func buildArguments(gameDir: String, cdImage: String, backend: Backend, fullscreen: Bool, memsizeMB: Int) -> [String] {
+    /// Testable without spawning DOSBox. `confPath`, when given, is passed
+    /// via -conf so the launch never silently depends on the user's own
+    /// ambient dosbox-staging.conf -- see RedguardGameSession's identical
+    /// parameter for the regression that motivated this.
+    nonisolated static func buildArguments(gameDir: String, cdImage: String, backend: Backend, fullscreen: Bool, memsizeMB: Int, confPath: String?) -> [String] {
         var args: [String] = []
+        if let confPath {
+            args += ["-conf", confPath]
+        }
         if backend == .x {
             args.append("-nopromptfolder")
         }
@@ -74,7 +83,12 @@ final class GameSession: ObservableObject {
             return
         }
 
-        let args = GameSession.buildArguments(gameDir: gameDir, cdImage: cdImage, backend: backend, fullscreen: fullscreen, memsizeMB: memsizeMB)
+        guard let confPath = BundledResource.url(named: "battlespire.conf")?.path else {
+            lastError = GameSessionError.confResourceMissing.errorDescription
+            return
+        }
+
+        let args = GameSession.buildArguments(gameDir: gameDir, cdImage: cdImage, backend: backend, fullscreen: fullscreen, memsizeMB: memsizeMB, confPath: confPath)
 
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: exe)
