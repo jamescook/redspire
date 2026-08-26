@@ -52,7 +52,14 @@ struct ContentView: View {
                         .foregroundStyle(gameDirectoryPath.isEmpty ? .secondary : .primary)
                     Spacer()
                     Button("Choose…") { chooseFolder() }
-                    Button("Setup Wizard…") { openWindow(id: "onboarding-wizard") }
+                    Button("Setup Wizard…") {
+                        // Otherwise a stale error from a previous failed
+                        // Play attempt keeps showing here even after the
+                        // wizard fixes the underlying problem -- nothing
+                        // else ever clears it.
+                        session.lastError = nil
+                        openWindow(id: "onboarding-wizard")
+                    }
                 }
                 if let warning = versionWarning {
                     Label(warning, systemImage: "exclamationmark.triangle")
