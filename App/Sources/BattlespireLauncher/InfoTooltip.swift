@@ -10,21 +10,25 @@ struct InfoTooltip: View {
     var linkURL: URL?
     var linkLabel: String = "Learn more"
     var hoverDelay: Double = 0.25
+    var hideDelay: Double = 0.2
 
-    @State private var isHovering = false
+    @State private var isHoveringIcon = false
+    @State private var isHoveringBubble = false
     @State private var showBubble = false
+
+    private var isHoveringEither: Bool { isHoveringIcon || isHoveringBubble }
 
     var body: some View {
         Image(systemName: "questionmark.circle")
             .foregroundStyle(.secondary)
             .onHover { hovering in
-                isHovering = hovering
+                isHoveringIcon = hovering
                 if hovering {
                     DispatchQueue.main.asyncAfter(deadline: .now() + hoverDelay) {
-                        if isHovering { showBubble = true }
+                        if isHoveringEither { showBubble = true }
                     }
                 } else {
-                    showBubble = false
+                    scheduleHideIfIdle()
                 }
             }
             .popover(isPresented: $showBubble, arrowEdge: .top) {
@@ -39,8 +43,23 @@ struct InfoTooltip: View {
                 }
                 .frame(width: 240, alignment: .leading)
                 .padding(10)
+                // The popover is a separate view hierarchy from the icon, so
+                // moving the cursor from the icon toward this content briefly
+                // hovers neither -- without tracking hover here too (and a
+                // short grace delay before hiding), that gap closes the
+                // bubble before the cursor ever reaches a "Learn more" link.
+                .onHover { hovering in
+                    isHoveringBubble = hovering
+                    if !hovering { scheduleHideIfIdle() }
+                }
             }
             .accessibilityLabel("More info")
             .accessibilityHint(text)
+    }
+
+    private func scheduleHideIfIdle() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + hideDelay) {
+            if !isHoveringEither { showBubble = false }
+        }
     }
 }

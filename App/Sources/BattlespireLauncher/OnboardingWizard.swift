@@ -1,10 +1,53 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-private enum WizardScreen {
+enum WizardScreen: Hashable {
     case chooseSource
-    case steamGuide
+    case steamMethodChoice
+    case steamViaApp
+    case steamViaCommand
+    case steamViaAutomatic
     case gogGuide
+}
+
+enum SteamInstallMethod: String, CaseIterable, Identifiable {
+    case steamApp
+    case runCommandMyself
+    case letAppDoIt
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .steamApp: return "Install it via the Steam app"
+        case .runCommandMyself: return "I'll run steamcmd myself"
+        case .letAppDoIt: return "Let this app run steamcmd for me"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .steamApp: return "Normal install through Steam's own app, then we detect it"
+        case .runCommandMyself: return "We give you the exact command; you run it in Terminal"
+        case .letAppDoIt: return "Enter your Steam login here; it downloads automatically"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .steamApp: return "gamecontroller"
+        case .runCommandMyself: return "terminal"
+        case .letAppDoIt: return "bolt.fill"
+        }
+    }
+
+    var screen: WizardScreen {
+        switch self {
+        case .steamApp: return .steamViaApp
+        case .runCommandMyself: return .steamViaCommand
+        case .letAppDoIt: return .steamViaAutomatic
+        }
+    }
 }
 
 struct OnboardingWizard: View {
@@ -13,6 +56,7 @@ struct OnboardingWizard: View {
     @Environment(\.dismissWindow) private var dismissWindow
 
     @State private var screen: WizardScreen = .chooseSource
+    @State private var selectedSteamMethod: SteamInstallMethod?
     @State private var detectedSteamPath: String?
     @State private var steamRedetectAttempted = false
     @State private var steamUsername = ""
@@ -31,13 +75,22 @@ struct OnboardingWizard: View {
         VStack(alignment: .leading, spacing: 16) {
             switch screen {
             case .chooseSource: chooseSourceView
-            case .steamGuide: steamGuideView
+            case .steamMethodChoice: steamMethodChoiceView
+            case .steamViaApp: steamViaAppView
+            case .steamViaCommand: steamViaCommandView
+            case .steamViaAutomatic: steamViaAutomaticView
             case .gogGuide: gogGuideView
             }
         }
         .padding(24)
         .frame(width: 520, height: 600, alignment: .top)
         .onAppear {
+            // This is a singular Window(id:), not a WindowGroup -- closing
+            // and reopening it reuses the same view/state rather than
+            // constructing fresh, so without this it "remembers" whatever
+            // screen was showing when it was last closed.
+            screen = .chooseSource
+            selectedSteamMethod = nil
             detectedSteamPath = SteamDetector.findGameDirectory()
             savedAccounts = credentialStore.listAccounts()
         }
@@ -87,7 +140,7 @@ struct OnboardingWizard: View {
                 title: "Steam",
                 subtitle: "I own it on Steam",
                 systemImage: "gamecontroller"
-            ) { screen = .steamGuide }
+            ) { screen = .steamMethodChoice }
 
             sourceCard(
                 title: "GOG",
@@ -156,108 +209,193 @@ struct OnboardingWizard: View {
         }
     }
 
-    // MARK: - Steam guide
+    // MARK: - Steam: method choice
 
-    private var steamGuideView: some View {
+    private var steamMethodChoiceView: some View {
         VStack(alignment: .leading, spacing: 16) {
             backButton
-            Text("Install via Steam").font(.title2).bold()
+            Text("How do you want to install it?").font(.title2).bold()
             Label("Battlespire doesn't appear to be installed via Steam yet.", systemImage: "exclamationmark.triangle")
                 .foregroundStyle(.orange)
                 .fixedSize(horizontal: false, vertical: true)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Option 1: the Steam app").font(.headline)
-                Text("Install it normally through Steam, then click Detect Again below.")
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(SteamInstallMethod.allCases) { method in
+                    methodChoiceCard(method)
+                }
+            }
+
+            if let selected = selectedSteamMethod {
+                Button("Continue") { screen = selected.screen }
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+    }
+
+    private func methodChoiceCard(_ method: SteamInstallMethod) -> some View {
+        let isSelected = selectedSteamMethod == method
+        return Button {
+            selectedSteamMethod = method
+        } label: {
+            HStack {
+                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                    .foregroundStyle(isSelected ? .blue : .secondary)
+                    .font(.title3)
+                Image(systemName: method.icon)
+                    .frame(width: 24)
+                VStack(alignment: .leading) {
+                    Text(method.title).bold()
+                    Text(method.subtitle).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding(10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(isSelected ? Color.blue.opacity(0.1) : Color.gray.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
+        )
+        .cornerRadius(8)
+    }
+
+    // MARK: - Steam: via the Steam app
+
+    private var steamViaAppView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            backButton(to: .steamMethodChoice)
+            Text("Install via the Steam App").font(.title2).bold()
+            Text("Install it normally through the Steam app -- Battlespire's AppID is 1812420.")
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Open Steam Store Page") {
+                NSWorkspace.shared.open(URL(string: "https://store.steampowered.com/app/1812420")!)
+            }
+
+            Divider()
+
+            manualDetectFooter
+        }
+    }
+
+    // MARK: - Steam: run steamcmd myself
+
+    private var steamViaCommandView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            backButton(to: .steamMethodChoice)
+            HStack(spacing: 4) {
+                Text("Run steamcmd Yourself").font(.title2).bold()
+                steamCMDTooltip
+            }
+
+            if !SteamCMDTool.isInstalled {
+                missingHomebrewToolView(
+                    toolName: "steamcmd",
+                    reason: "it can download the game files directly, without installing the full Steam client",
+                    formula: "steamcmd"
+                )
+            } else {
+                Text("Enter your Steam username, then copy this command and run it in Terminal -- it'll prompt you for your password and Steam Guard code there.")
                     .font(.callout)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("Open Steam Store Page") {
-                    NSWorkspace.shared.open(URL(string: "https://store.steampowered.com/app/1812420")!)
+                TextField("Steam username", text: $steamUsername)
+                    .textFieldStyle(.roundedBorder)
+                    .textContentType(.username)
+                    .frame(maxWidth: 240)
+                Text(SteamCMDInstaller.command(username: steamUsername, destDir: SteamCMDInstaller.installDestination.path))
+                    .font(.system(.caption2, design: .monospaced))
+                    .padding(8)
+                    .background(Color.gray.opacity(0.15))
+                    .cornerRadius(4)
+                    .textSelection(.enabled)
+                HStack {
+                    Button(commandCopied ? "Copied!" : "Copy Command") {
+                        let pb = NSPasteboard.general
+                        pb.clearContents()
+                        pb.setString(SteamCMDInstaller.command(username: steamUsername, destDir: SteamCMDInstaller.installDestination.path), forType: .string)
+                        commandCopied = true
+                    }
+                    Button("Open Terminal") { openTerminal() }
                 }
             }
 
             Divider()
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 4) {
-                    Text("Option 2: steamcmd").font(.headline)
-                    InfoTooltip(
-                        text: "steamcmd is Valve's official command-line tool for downloading Steam games without the full Steam app — handy for headless/automated installs.",
-                        linkURL: URL(string: "https://developer.valvesoftware.com/wiki/SteamCMD")!
-                    )
+            manualDetectFooter
+        }
+    }
+
+    // MARK: - Steam: let the app do it
+
+    private var steamViaAutomaticView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if !steamCMDSession.isRunning {
+                backButton(to: .steamMethodChoice)
+            }
+            HStack(spacing: 4) {
+                Text("Automatic Install").font(.title2).bold()
+                steamCMDTooltip
+            }
+
+            if !SteamCMDTool.isInstalled {
+                missingHomebrewToolView(
+                    toolName: "steamcmd",
+                    reason: "it can download the game files directly, without installing the full Steam client",
+                    formula: "steamcmd"
+                )
+            } else if steamCMDSession.stage != nil {
+                steamCMDSessionView
+            } else {
+                if !savedAccounts.isEmpty {
+                    savedAccountPicker
                 }
-                if !SteamCMDTool.isInstalled {
-                    missingHomebrewToolView(
-                        toolName: "steamcmd",
-                        reason: "it can download the game files directly, without installing the full Steam client",
-                        formula: "steamcmd"
-                    )
-                } else if steamCMDSession.stage != nil {
-                    steamCMDSessionView
+                if selectedSavedAccount == nil {
+                    TextField("Steam username", text: $steamUsername)
+                        .textFieldStyle(.roundedBorder)
+                        .textContentType(.username)
+                        .frame(maxWidth: 240)
+                }
+
+                if selectedSavedAccount != nil {
+                    Label("Using the saved password for this account.", systemImage: "checkmark.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 } else {
-                    if !savedAccounts.isEmpty {
-                        savedAccountPicker
-                    }
-                    if selectedSavedAccount == nil {
-                        TextField("Steam username", text: $steamUsername)
-                            .textFieldStyle(.roundedBorder)
-                            .textContentType(.username)
-                            .frame(maxWidth: 240)
-                    }
-
-                    HStack(alignment: .top, spacing: 24) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Run it here").font(.subheadline).bold()
-                            if selectedSavedAccount != nil {
-                                Label("Using the saved password for this account.", systemImage: "checkmark.circle")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            } else {
-                                Text("Password and Steam Guard code stay local to this steamcmd process.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                NativeSecureField(placeholder: "Steam password", text: $steamPassword)
-                                    .frame(maxWidth: 200, maxHeight: 22)
-                                Toggle("Remember this password in Keychain", isOn: $rememberPassword)
-                                    .font(.caption)
-                            }
-                            Button("Run for Me") {
-                                steamCMDSession.start(
-                                    username: steamUsername,
-                                    password: steamPassword,
-                                    destDir: SteamCMDInstaller.installDestination.path,
-                                    rememberPassword: rememberPassword
-                                )
-                            }
-                            .disabled(steamUsername.trimmingCharacters(in: .whitespaces).isEmpty || steamPassword.isEmpty)
-                        }
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Or run it yourself").font(.subheadline).bold()
-                            Text(SteamCMDInstaller.command(username: steamUsername, destDir: SteamCMDInstaller.installDestination.path))
-                                .font(.system(.caption2, design: .monospaced))
-                                .padding(8)
-                                .background(Color.gray.opacity(0.15))
-                                .cornerRadius(4)
-                                .textSelection(.enabled)
-                            HStack {
-                                Button(commandCopied ? "Copied!" : "Copy Command") {
-                                    let pb = NSPasteboard.general
-                                    pb.clearContents()
-                                    pb.setString(SteamCMDInstaller.command(username: steamUsername, destDir: SteamCMDInstaller.installDestination.path), forType: .string)
-                                    commandCopied = true
-                                }
-                                Button("Open Terminal") { openTerminal() }
-                            }
-                        }
-                    }
+                    Text("Password and Steam Guard code stay local to this steamcmd process.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    NativeSecureField(placeholder: "Steam password", text: $steamPassword)
+                        .frame(maxWidth: 200, maxHeight: 22)
+                    Toggle("Remember this password in Keychain", isOn: $rememberPassword)
+                        .font(.caption)
                 }
+                Button("Run for Me") {
+                    steamCMDSession.start(
+                        username: steamUsername,
+                        password: steamPassword,
+                        destDir: SteamCMDInstaller.installDestination.path,
+                        rememberPassword: rememberPassword
+                    )
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(steamUsername.trimmingCharacters(in: .whitespaces).isEmpty || steamPassword.isEmpty)
             }
+        }
+    }
 
-            Divider()
+    private var steamCMDTooltip: InfoTooltip {
+        InfoTooltip(
+            text: "steamcmd is Valve's official command-line tool for downloading Steam games without the full Steam app — handy for headless/automated installs.",
+            linkURL: URL(string: "https://developer.valvesoftware.com/wiki/SteamCMD")!
+        )
+    }
 
-            Button("Detect Again") {
+    private var manualDetectFooter: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button("I've Installed It — Detect Again") {
                 steamRedetectAttempted = true
                 if let found = SteamDetector.findGameDirectory() ?? SteamCMDInstaller.findInstalledGameDir() {
                     gameDirectoryPath = found
@@ -335,7 +473,7 @@ struct OnboardingWizard: View {
             }
             LogScrollView(text: steamCMDSession.log)
             HStack {
-                TextField("Steam Guard code (if asked by email/SMS)", text: $steamGuardCode)
+                TextField("Steam Guard code (if asked)", text: $steamGuardCode)
                     .textFieldStyle(.roundedBorder)
                     .frame(maxWidth: 220)
                 Button("Send") {
@@ -515,9 +653,11 @@ struct OnboardingWizard: View {
         }
     }
 
-    private var backButton: some View {
+    private var backButton: some View { backButton(to: .chooseSource) }
+
+    private func backButton(to target: WizardScreen) -> some View {
         Button {
-            screen = .chooseSource
+            screen = target
         } label: {
             Label("Back", systemImage: "chevron.left")
         }
