@@ -3,7 +3,8 @@ import Foundation
 enum RedguardSessionError: LocalizedError {
     case backendNotInstalled(Backend)
     case redguardExeNotFound(String)
-    case cdImageNotFound(String)
+    case rgfxExeNotFound(String)
+    case cdImageNotFound
 
     var errorDescription: String? {
         switch self {
@@ -11,8 +12,10 @@ enum RedguardSessionError: LocalizedError {
             return "\(backend.displayName) isn't installed. Run: \(backend.installHint)"
         case .redguardExeNotFound(let dir):
             return "REDGUARD.EXE not found in \(dir)/Redguard. Point at the folder that contains the Redguard subfolder directly."
-        case .cdImageNotFound(let dir):
-            return "No CD image (.ins/.cue/.iso) found in \(dir). Pick one manually if it's named unusually."
+        case .rgfxExeNotFound(let dir):
+            return "RGFX.EXE (the game's renderer) not found in \(dir)/Redguard. Try reinstalling via the Setup Wizard."
+        case .cdImageNotFound:
+            return "This game also needs its second disc (for videos and music) to play. Add it under \"Second Disc\" above, then try again."
         }
     }
 }
@@ -66,15 +69,21 @@ final class RedguardGameSession: ObservableObject {
             return
         }
 
+        let rgfxExe = (gameDir as NSString).appendingPathComponent("Redguard/RGFX.EXE")
+        guard FileManager.default.fileExists(atPath: rgfxExe) else {
+            lastError = RedguardSessionError.rgfxExeNotFound(gameDir).errorDescription
+            return
+        }
+
         guard let cdImage = cdImagePathOverride.isEmpty
             ? CDImageDetector.autoDetect(inGameDir: gameDir)
             : cdImagePathOverride
         else {
-            lastError = RedguardSessionError.cdImageNotFound(gameDir).errorDescription
+            lastError = RedguardSessionError.cdImageNotFound.errorDescription
             return
         }
         guard FileManager.default.fileExists(atPath: cdImage) else {
-            lastError = RedguardSessionError.cdImageNotFound(gameDir).errorDescription
+            lastError = RedguardSessionError.cdImageNotFound.errorDescription
             return
         }
 

@@ -9,13 +9,10 @@ import Foundation
 /// only the small program part gets copied out.
 enum DiscImageInstaller {
     enum ExtractError: LocalizedError {
-        case mountFailed(String)
         case gameFilesNotFound
 
         var errorDescription: String? {
             switch self {
-            case .mountFailed(let reason):
-                return "Couldn't open that disc image: \(reason)"
             case .gameFilesNotFound:
                 return "Couldn't find the game's files inside that disc image."
             }
@@ -46,8 +43,8 @@ enum DiscImageInstaller {
     /// of this. MSS itself also sits as a sibling of the batspire/ folder
     /// rather than inside it on the disc, so that gets copied in too.
     static func extractGameFiles(fromISO isoPath: String, runner: ProcessRunning = SystemProcessRunner()) throws -> String {
-        let mountPoint = try mount(isoPath, runner: runner)
-        defer { unmount(mountPoint, runner: runner) }
+        let mountPoint = try DiscMounter.mount(isoPath, runner: runner)
+        defer { DiscMounter.unmount(mountPoint, runner: runner) }
 
         guard let sourceDir = Self.findGameDir(atRoot: mountPoint) else {
             throw ExtractError.gameFilesNotFound
@@ -85,27 +82,12 @@ enum DiscImageInstaller {
 
     private static func writeBundledTemplateIfMissing(named name: String, into dir: String, fileManager: FileManager) throws {
         guard resolveActualName(in: dir, matching: name, fileManager: fileManager) == nil else { return }
-        guard let templateURL = bundledResourceURL(named: name, fileManager: fileManager) else {
+        guard let templateURL = BundledResource.url(named: name, fileManager: fileManager) else {
             throw ExtractError.gameFilesNotFound
         }
         let dst = (dir as NSString).appendingPathComponent(name)
         try? fileManager.removeItem(atPath: dst)
         try fileManager.copyItem(at: templateURL, to: URL(fileURLWithPath: dst))
-    }
-
-    /// build.sh copies these into the real app's Contents/Resources/ directly
-    /// (SPM's generated resource bundle has no Info.plist, which codesign
-    /// refuses to validate as a nested bundle) -- check there first, falling
-    /// back to Bundle.module for local `swift build`/`swift test` runs,
-    /// which don't produce a real .app at all.
-    private static func bundledResourceURL(named name: String, fileManager: FileManager) -> URL? {
-        if let resourceURL = Bundle.main.resourceURL {
-            let candidate = resourceURL.appendingPathComponent(name)
-            if fileManager.fileExists(atPath: candidate.path) {
-                return candidate
-            }
-        }
-        return Bundle.module.url(forResource: name, withExtension: nil)
     }
 
     /// Searches `root` (and one level down) for a folder containing
@@ -133,33 +115,7 @@ enum DiscImageInstaller {
 
     /// Pure: the on-disk name matching `name` case-insensitively, if any.
     static func resolveActualName(in dir: String, matching name: String, fileManager: FileManager = .default) -> String? {
-        (try? fileManager.contentsOfDirectory(atPath: dir))?.first { $0.caseInsensitiveCompare(name) == .orderedSame }
-    }
-
-    /// Pure: pulls the mount point out of `hdiutil attach -plist`'s output.
-    static func parseMountPoint(fromHdiutilPlistOutput output: String) -> String? {
-        guard let data = output.data(using: .utf8),
-              let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
-              let entities = plist["system-entities"] as? [[String: Any]]
-        else {
-            return nil
-        }
-        return entities.compactMap { $0["mount-point"] as? String }.first
-    }
-
-    private static func mount(_ isoPath: String, runner: ProcessRunning) throws -> String {
-        let result = runner.runSync(executable: "/usr/bin/hdiutil", arguments: ["attach", "-nobrowse", "-readonly", "-plist", isoPath])
-        guard result.exitCode == 0 else {
-            throw ExtractError.mountFailed("hdiutil exited with status \(result.exitCode)")
-        }
-        guard let mountPoint = parseMountPoint(fromHdiutilPlistOutput: result.output) else {
-            throw ExtractError.mountFailed("no mountable volume found in that image")
-        }
-        return mountPoint
-    }
-
-    private static func unmount(_ mountPoint: String, runner: ProcessRunning) {
-        _ = runner.runSync(executable: "/usr/bin/hdiutil", arguments: ["detach", mountPoint, "-quiet"])
+        CaseInsensitiveFileLookup.resolveActualName(in: dir, matching: name, fileManager: fileManager)
     }
 
     private static func copyContents(of sourceDir: String, to destDir: String) throws {

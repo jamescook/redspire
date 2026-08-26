@@ -109,3 +109,15 @@ struct FakeFileProvider: FileProviding {
     func stringContents(atPath path: String) -> String? { files[path] }
     func fileExists(atPath path: String) -> Bool { existingPaths.contains(path) }
 }
+
+/// @MainActor installers (GogInstaller, RedguardGogInstaller,
+/// RedguardDiscImageInstaller, SteamCMDSession) wrap their process
+/// callbacks in `Task { @MainActor in ... }`, since the real runner invokes
+/// them off-MainActor -- correct for production, but it means even a
+/// synchronous FakeProcessRunner's callbacks land on the MainActor queue
+/// rather than updating @Published state inline. Call this after driving
+/// one of those through a fake runner and before asserting on its state.
+@MainActor
+func drainMainActorTasks() async {
+    for _ in 0..<20 { await Task.yield() }
+}

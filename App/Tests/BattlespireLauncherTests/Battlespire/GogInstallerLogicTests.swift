@@ -49,4 +49,27 @@ struct GogInstallerLogicTests {
         let stage = GogInstaller.resolveStage(exitCode: 0, gameExeExists: true, versionString: "Battlespire V1.5", hashVerified: false, gameDir: "/tmp/x")
         #expect(stage == .done(gameDir: "/tmp/x", verifiedHash: false))
     }
+
+    // MARK: - reset
+
+    /// Real bug (same class as Redguard's installers): the wizard never
+    /// called reset() on this object, so re-selecting "GOG" after any
+    /// earlier attempt showed that stale stage/log instead of starting
+    /// fresh.
+    @Test @MainActor func resetClearsStageAndLogWhenNotRunning() async {
+        let runner = FakeProcessRunner()
+        runner.syncResult = (0, "")
+        runner.asyncExitCode = 2
+        runner.asyncOutputLines = ["some output\n"]
+        let installer = GogInstaller(runner: runner, innoExtractPath: { "/usr/bin/true" })
+
+        installer.extract(installerPath: "/tmp/fake.exe")
+        await drainMainActorTasks()
+        #expect(installer.stage != nil)
+        #expect(installer.log != "")
+
+        installer.reset()
+        #expect(installer.stage == nil)
+        #expect(installer.log == "")
+    }
 }

@@ -107,6 +107,8 @@ struct OnboardingWizard: View {
             manualIsOldVersion = false
             detectedSteamPath = SteamDetector.findGameDirectory()
             savedAccounts = credentialStore.listAccounts()
+            gogInstaller.reset()
+            steamCMDSession.reset()
         }
         .onChange(of: steamCMDSession.stage) {
             savedAccounts = credentialStore.listAccounts()
@@ -154,13 +156,13 @@ struct OnboardingWizard: View {
                 title: "Steam",
                 subtitle: "I own it on Steam",
                 systemImage: "gamecontroller"
-            ) { manualErrorMessage = nil; screen = .steamMethodChoice }
+            ) { manualErrorMessage = nil; steamCMDSession.reset(); screen = .steamMethodChoice }
 
             sourceCard(
                 title: "GOG",
                 subtitle: "I bought it on GOG.com",
                 systemImage: "arrow.down.circle"
-            ) { manualErrorMessage = nil; screen = .gogGuide }
+            ) { manualErrorMessage = nil; gogInstaller.reset(); screen = .gogGuide }
 
             sourceCard(
                 title: "I already have it installed",

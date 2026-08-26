@@ -126,7 +126,11 @@ final class SteamCMDSession: ObservableObject {
         handle?.terminate()
     }
 
+    /// No-op while actually running -- never silently hides an in-progress
+    /// attempt's visible state just because the wizard navigated away and
+    /// back to this screen.
     func reset() {
+        guard !isRunning else { return }
         stage = nil
         log = ""
     }

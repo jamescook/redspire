@@ -4,26 +4,32 @@ import UniformTypeIdentifiers
 enum RedguardWizardScreen: Hashable {
     case chooseSource
     case gogGuide
+    case discImage
 }
 
 /// Redguard's own setup wizard, mirroring OnboardingWizard's shape and
-/// visual style for consistency. Only GOG and "I already have it installed"
-/// are real options -- Steam support (battlespire-macos-ao9.4) isn't built
-/// yet, so it's left out entirely rather than shown as a dead-end choice.
+/// visual style for consistency. GOG, the original disc(s), and "I already
+/// have it installed" are the real options -- Steam support
+/// (battlespire-macos-ao9.4) isn't built yet, so it's left out entirely
+/// rather than shown as a dead-end choice.
 struct RedguardOnboardingWizard: View {
     @AppStorage("redguardGameDirectoryPath") private var gameDirectoryPath = ""
+    @AppStorage("redguardCdImagePath") private var cdImagePath = ""
     @AppStorage("redguardWizardCompleted") private var wizardCompleted = false
     @Environment(\.dismissWindow) private var dismissWindow
 
     @State private var screen: RedguardWizardScreen = .chooseSource
     @State private var manualErrorMessage: String?
+    @State private var playDiscPath = ""
     @StateObject private var gogInstaller = RedguardGogInstaller()
+    @StateObject private var discInstaller = RedguardDiscImageInstaller()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             switch screen {
             case .chooseSource: chooseSourceView
             case .gogGuide: gogGuideView
+            case .discImage: discImageView
             }
         }
         .padding(24)
@@ -33,6 +39,9 @@ struct RedguardOnboardingWizard: View {
             // identical comment for why this reset is needed on reopen.
             screen = .chooseSource
             manualErrorMessage = nil
+            playDiscPath = ""
+            gogInstaller.reset()
+            discInstaller.reset()
         }
     }
 
@@ -58,7 +67,13 @@ struct RedguardOnboardingWizard: View {
                 title: "GOG",
                 subtitle: "I bought it on GOG.com",
                 systemImage: "arrow.down.circle"
-            ) { manualErrorMessage = nil; screen = .gogGuide }
+            ) { manualErrorMessage = nil; gogInstaller.reset(); screen = .gogGuide }
+
+            sourceCard(
+                title: "I have the original disc(s)",
+                subtitle: "Extract from a ripped install-disc image (.iso)",
+                systemImage: "opticaldiscdrive"
+            ) { manualErrorMessage = nil; playDiscPath = ""; discInstaller.reset(); screen = .discImage }
 
             sourceCard(
                 title: "I already have it installed",
@@ -237,6 +252,147 @@ struct RedguardOnboardingWizard: View {
         panel.message = "Select the GOG offline installer (setup_*.exe)"
         if panel.runModal() == .OK, let url = panel.url {
             gogInstaller.extract(installerPath: url.path)
+        }
+    }
+
+    // MARK: - Install from disc image
+
+    private var discImageView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if !discInstaller.isRunning {
+                backButton
+            }
+            Text("Install from Disc Image").font(.title2).bold()
+
+            if discInstaller.stage == nil {
+                Text("Point this at a ripped copy of Disc 1 (the Install Disc) as a .iso file. If you haven't ripped it yet, ripping tools like bchunk can pull one off the physical disc.")
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            discInstallStatusView
+        }
+    }
+
+    @ViewBuilder
+    private var discInstallStatusView: some View {
+        if !UnshieldTool.isInstalled {
+            MissingHomebrewToolView(
+                toolName: "unshield",
+                reason: "the retail disc's installer is an InstallShield package that needs it to unpack without running Windows",
+                formula: "unshield"
+            )
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                switch discInstaller.stage {
+                case .none:
+                    Button("Choose Disc 1 Image (.iso)…") { browseForDiscImage() }
+                case .extracting:
+                    HStack {
+                        ProgressView().controlSize(.small)
+                        Text("Extracting…")
+                    }
+                case .needsGlideDriver:
+                    glideDriverPrompt
+                case .failed(let reason):
+                    Label(reason, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Try Again") { browseForDiscImage() }
+                case .done(let dir):
+                    installerOptionCard(icon: "checkmark.circle.fill", color: .green, text: "Extracted successfully.")
+                    playDiscPrompt
+                    Button("Continue") {
+                        gameDirectoryPath = dir
+                        if !playDiscPath.isEmpty { cdImagePath = playDiscPath }
+                        complete()
+                    }
+                    .keyboardShortcut(.defaultAction)
+                }
+
+                if !discInstaller.log.isEmpty {
+                    LogScrollView(text: discInstaller.log)
+                }
+
+                if discInstaller.isRunning {
+                    Button("Cancel") { discInstaller.cancel() }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var glideDriverPrompt: some View {
+        if case .needsGlideDriver(let gameDir) = discInstaller.stage {
+            VStack(alignment: .leading, spacing: 10) {
+                installerOptionCard(
+                    icon: "exclamationmark.triangle.fill",
+                    color: .orange,
+                    text: "Everything else is ready, but this game also needs a file called GLIDE2X.OVL that the retail disc doesn't include (a licensing thing, not a bug on our end)."
+                )
+                Text("If you also own this game on GOG, open that install's DOSBOX folder and pick glide2x_emu.ovl there. Otherwise, DOSBox-X's own guide explains where to find an official copy.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Button("Choose File…") { browseForGlideDriver(gameDir: gameDir) }
+                    Button("Open DOSBox-X's Guide") {
+                        NSWorkspace.shared.open(URL(string: "https://dosbox-x.com/wiki/Guide:Setting-up-3dfx-Voodoo-in-DOSBox%E2%80%90X")!)
+                    }
+                }
+            }
+        }
+    }
+
+    private var playDiscPrompt: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("This game also plays its videos and music from its second disc while you're playing. Add that now so everything works, or add it later from the main screen.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button(playDiscPath.isEmpty ? "Choose Second Disc…" : "Second Disc Selected") { browseForPlayDisc() }
+                if !playDiscPath.isEmpty {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                }
+            }
+        }
+    }
+
+    private func browseForPlayDisc() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Select"
+        panel.message = "Select the second disc, ripped as an image file (.iso, .cue, or .ins)"
+        if panel.runModal() == .OK, let url = panel.url {
+            playDiscPath = url.path
+        }
+    }
+
+    private func browseForDiscImage() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [UTType(filenameExtension: "iso")].compactMap { $0 }
+        panel.prompt = "Select"
+        panel.message = "Select Disc 1 (the Install Disc) as a .iso file"
+        if panel.runModal() == .OK, let url = panel.url {
+            discInstaller.extract(isoPath: url.path)
+        }
+    }
+
+    private func browseForGlideDriver(gameDir: String) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Select"
+        panel.message = "Select glide2x_emu.ovl (or another legitimate GLIDE2X.OVL)"
+        if panel.runModal() == .OK, let url = panel.url {
+            discInstaller.supplyGlideDriver(fromPath: url.path, gameDir: gameDir)
         }
     }
 

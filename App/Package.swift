@@ -8,7 +8,12 @@ let package = Package(
         .executableTarget(
             name: "BattlespireLauncher",
             path: "Sources/BattlespireLauncher",
-            resources: [.copy("Battlespire/Resources/SPIRE.CFG"), .copy("Battlespire/Resources/DIG.INI")]
+            resources: [
+                .copy("Battlespire/Resources/SPIRE.CFG"),
+                .copy("Battlespire/Resources/DIG.INI"),
+                .copy("Redguard/Resources/REDGUARD_DIG.INI"),
+                .copy("Redguard/Resources/REDGUARD_MDI.INI"),
+            ]
         ),
         .testTarget(
             name: "BattlespireLauncherTests",

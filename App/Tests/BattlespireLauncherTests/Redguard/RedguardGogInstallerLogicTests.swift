@@ -42,4 +42,52 @@ struct RedguardGogInstallerLogicTests {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }
+
+    // MARK: - reset
+
+    /// Real bug: the wizard never called reset() on this object at all, so
+    /// re-selecting "GOG" after any earlier attempt (even a failed one)
+    /// showed that stale stage/log instead of starting fresh.
+    @Test @MainActor func resetClearsStageAndLogWhenNotRunning() async {
+        let runner = FakeProcessRunner()
+        runner.syncResult = (0, "")
+        runner.asyncExitCode = 2
+        runner.asyncOutputLines = ["some output\n"]
+        let installer = RedguardGogInstaller(runner: runner, innoExtractPath: { "/usr/bin/true" })
+
+        installer.extract(installerPath: "/tmp/fake.exe")
+        await drainMainActorTasks()
+        #expect(installer.stage != nil)
+        #expect(installer.log != "")
+
+        installer.reset()
+        #expect(installer.stage == nil)
+        #expect(installer.log == "")
+    }
+
+    /// A hanging runner that never calls onExit, to prove reset() doesn't
+    /// wipe an extraction's visible progress while it's still in flight.
+    private final class HangingProcessRunner: ProcessRunning {
+        func runSync(executable: String, arguments: [String]) -> (exitCode: Int32, output: String) {
+            (0, "")
+        }
+
+        func runAsync(executable: String, arguments: [String], onOutput: @escaping (String) -> Void, onExit: @escaping (Int32) -> Void) -> ProcessHandle {
+            onOutput("extracting...\n")
+            return FakeProcessHandle()
+        }
+    }
+
+    @Test @MainActor func resetIsNoOpWhileRunning() async {
+        let installer = RedguardGogInstaller(runner: HangingProcessRunner(), innoExtractPath: { "/usr/bin/true" })
+
+        installer.extract(installerPath: "/tmp/fake.exe")
+        await drainMainActorTasks()
+        #expect(installer.isRunning == true)
+        #expect(installer.stage == .extracting)
+
+        installer.reset()
+        #expect(installer.stage == .extracting)
+        #expect(installer.log == "extracting...\n")
+    }
 }

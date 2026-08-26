@@ -37,9 +37,9 @@ struct RedguardContentView: View {
                 }
             }
 
-            GroupBox("CD Image (optional)") {
+            GroupBox("Second Disc (videos & music)") {
                 HStack {
-                    Text(cdImagePath.isEmpty ? "Auto-detect in game folder (.ins/.cue/.iso)" : cdImagePath)
+                    Text(cdImagePath.isEmpty ? "Not set — auto-detected in the game folder if present" : cdImagePath)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .foregroundStyle(.secondary)
