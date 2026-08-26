@@ -74,12 +74,17 @@ struct ContentView: View {
 
             GroupBox("DOSBox") {
                 VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 4) {
+                        Text("Backend").font(.subheadline).foregroundStyle(.secondary)
+                        InfoTooltip(text: "dosbox-staging: actively maintained and correctly detects this game's video mode — recommended. dosbox-x: an alternative build with more emulation options; try it if staging doesn't work for you.")
+                    }
                     Picker("Backend", selection: $backendRaw) {
                         ForEach(Backend.allCases) { b in
                             Text(b.displayName).tag(b.rawValue)
                         }
                     }
                     .pickerStyle(.segmented)
+                    .labelsHidden()
 
                     HStack {
                         if backend.isInstalled {
@@ -114,7 +119,10 @@ struct ContentView: View {
 
                     Toggle("Fullscreen", isOn: $fullscreen)
 
-                    Stepper("Memory: \(memsizeMB) MB", value: $memsizeMB, in: 16...256, step: 16)
+                    HStack(spacing: 4) {
+                        Stepper("Memory: \(memsizeMB) MB", value: $memsizeMB, in: 16...256, step: 16)
+                        InfoTooltip(text: "Emulated RAM for the DOS session. 48MB matches what Battlespire expects — raising it rarely helps and can occasionally confuse older DOS software.")
+                    }
                 }
             }
 
@@ -128,6 +136,7 @@ struct ContentView: View {
                 Circle()
                     .fill(session.isRunning ? .green : .gray)
                     .frame(width: 8, height: 8)
+                    .accessibilityHidden(true)
                 Text(session.isRunning ? "Running" : "Not running")
                     .foregroundStyle(.secondary)
                 Spacer()
