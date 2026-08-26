@@ -6,3 +6,7 @@ App/dist/
 
 # Not stored in git for now (large binary, undecided hosting approach)
 assets/
+
+# Local build/notarization config (signing identity, API keys) -- never committed
+App/.env
+App/*.p8

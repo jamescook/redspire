@@ -1,0 +1,88 @@
+name: Release
+
+# Builds, codesigns, and notarizes BattlespireLauncher.app, then attaches the
+# notarized .zip to a GitHub Release. Runs on a version tag push (v*), or
+# manually via workflow_dispatch.
+#
+# Requires these repo secrets (Settings > Secrets and variables > Actions) --
+# none of this happens automatically, someone with a paid Apple Developer
+# account has to generate them once:
+#
+#   MACOS_CERTIFICATE_P12_BASE64  Your "Developer ID Application" cert + key,
+#                                 exported from Keychain Access as a .p12,
+#                                 then: base64 -i cert.p12 | pbcopy
+#   MACOS_CERTIFICATE_PASSWORD    The password you set when exporting the .p12.
+#   CI_KEYCHAIN_PASSWORD          Any password -- just protects the throwaway
+#                                 keychain this workflow creates. Not the same
+#                                 as your Apple ID password.
+#   NOTARY_KEY_P8_BASE64          An App Store Connect API key (.p8), from
+#                                 https://appstoreconnect.apple.com/access/api
+#                                 (needs the "Developer" role or above), then:
+#                                 base64 -i AuthKey_XXXX.p8 | pbcopy
+#   NOTARY_KEY_ID                 The key ID shown next to it on that page.
+#   NOTARY_ISSUER_ID              The Issuer ID shown at the top of that page.
+#
+# See App/build.sh for what these get used for locally too.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: swift test
+        working-directory: App
+        run: swift test
+
+      - name: Import signing certificate into a temporary keychain
+        env:
+          MACOS_CERTIFICATE_P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          CI_KEYCHAIN_PASSWORD: ${{ secrets.CI_KEYCHAIN_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/ci-signing.keychain-db"
+          CERT_PATH="$RUNNER_TEMP/certificate.p12"
+
+          echo "$MACOS_CERTIFICATE_P12_BASE64" | base64 --decode -o "$CERT_PATH"
+
+          security create-keychain -p "$CI_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$CI_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$MACOS_CERTIFICATE_PASSWORD" -A \
+            -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$CI_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Make it visible to `security find-identity` alongside the default list.
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+
+      - name: Write App Store Connect API key
+        env:
+          NOTARY_KEY_P8_BASE64: ${{ secrets.NOTARY_KEY_P8_BASE64 }}
+        run: echo "$NOTARY_KEY_P8_BASE64" | base64 --decode -o "$RUNNER_TEMP/AuthKey.p8"
+
+      - name: Build, sign, and notarize
+        env:
+          NOTARY_KEY_PATH: ${{ format('{0}/AuthKey.p8', runner.temp) }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        working-directory: App
+        run: ./build.sh --notarize
+
+      - name: Upload notarized app
+        uses: actions/upload-artifact@v4
+        with:
+          name: BattlespireLauncher
+          path: App/dist/BattlespireLauncher.zip
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: App/dist/BattlespireLauncher.zip

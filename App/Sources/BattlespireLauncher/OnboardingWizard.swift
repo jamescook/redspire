@@ -25,7 +25,8 @@ struct OnboardingWizard: View {
             }
         }
         .padding(24)
-        .frame(width: 520, height: 480, alignment: .top)
+        .frame(width: 520, alignment: .top)
+        .fixedSize(horizontal: false, vertical: true)
         .onAppear {
             detectedSteamPath = SteamDetector.findGameDirectory()
         }
@@ -80,8 +81,6 @@ struct OnboardingWizard: View {
                 subtitle: "Point me at an existing game folder",
                 systemImage: "folder"
             ) { chooseExistingFolder() }
-
-            Spacer()
         }
     }
 
@@ -104,6 +103,25 @@ struct OnboardingWizard: View {
         .buttonStyle(.plain)
         .background(Color.gray.opacity(0.08))
         .cornerRadius(8)
+    }
+
+    private func installerOptionCard(icon: String, color: Color, text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.title3)
+                .foregroundStyle(color)
+            Text(text)
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(color.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(color, lineWidth: 4)
+        )
     }
 
     private func chooseExistingFolder() {
@@ -151,8 +169,6 @@ struct OnboardingWizard: View {
                     .font(.callout)
                     .foregroundStyle(.orange)
             }
-
-            Spacer()
         }
     }
 
@@ -165,35 +181,45 @@ struct OnboardingWizard: View {
             }
             Text("Install via GOG").font(.title2).bold()
 
-            Text("""
-            GOG's download page offers two different files — make sure you get \
-            the right one:
-            """)
-            .fixedSize(horizontal: false, vertical: true)
+            if !isExtractionDone {
+                Text("""
+                GOG's download page offers two different files — make sure you get \
+                the right one:
+                """)
+                .fixedSize(horizontal: false, vertical: true)
 
-            VStack(alignment: .leading, spacing: 6) {
-                Label("The small \"GOG Galaxy\" web installer (a few hundred KB) — won't work here.", systemImage: "xmark.circle")
-                    .foregroundStyle(.red)
-                Label("The \"offline backup installer\" (100s of MB, named setup_*.exe) — this is the one you need.", systemImage: "checkmark.circle")
-                    .foregroundStyle(.green)
+                VStack(alignment: .leading, spacing: 10) {
+                    installerOptionCard(
+                        icon: "checkmark.circle.fill",
+                        color: .green,
+                        text: "The \"offline backup installer\" (100s of MB, named setup_*.exe) — this is the one you need."
+                    )
+                    installerOptionCard(
+                        icon: "xmark.circle.fill",
+                        color: .red,
+                        text: "The small \"GOG Galaxy\" web installer (a few hundred KB) — won't work here."
+                    )
+                }
+
+                Text("Look for the offline installer under a dropdown near GOG's main download button.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Button("Open Battlespire on GOG.com") {
+                    NSWorkspace.shared.open(URL(string: "https://www.gog.com/en/game/an_elder_scrolls_legend_battlespire")!)
+                }
+                .disabled(gogInstaller.isRunning)
+
+                Divider()
             }
-            .font(.callout)
-
-            Text("Look for the offline installer under a dropdown near GOG's main download button.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Button("Search GOG.com for Battlespire") {
-                NSWorkspace.shared.open(URL(string: "https://www.gog.com/en/games?query=battlespire")!)
-            }
-            .disabled(gogInstaller.isRunning)
-
-            Divider()
 
             gogInstallStatusView
-
-            Spacer()
         }
+    }
+
+    private var isExtractionDone: Bool {
+        if case .done = gogInstaller.stage { return true }
+        return false
     }
 
     @ViewBuilder
@@ -201,35 +227,68 @@ struct OnboardingWizard: View {
         if !InnoExtractTool.isInstalled {
             innoExtractMissingView
         } else {
-            switch gogInstaller.stage {
-            case .none:
-                Button("Browse for Installer (.exe)…") { browseForInstaller() }
-            case .extracting:
-                extractionProgressView(label: "Extracting… this can take a few minutes for a ~600MB installer.")
-            case .verifying:
-                extractionProgressView(label: "Verifying game files…")
-            case .failed(let reason):
-                Label(reason, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button("Try Again") {
-                    browseForInstaller()
-                }
-            case .done(let dir, let verified):
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Extracted successfully", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                    if verified {
-                        Label("Matches a verified official v1.5 build", systemImage: "checkmark.seal.fill")
-                            .foregroundStyle(.green)
-                            .font(.caption)
+            VStack(alignment: .leading, spacing: 12) {
+                switch gogInstaller.stage {
+                case .none:
+                    Button("Browse for Installer (.exe)…") { browseForInstaller() }
+                case .extracting:
+                    statusRow(spinning: true, text: "Extracting… this can take a few minutes for a ~600MB installer.")
+                case .verifying:
+                    statusRow(spinning: true, text: "Verifying game files…")
+                case .failed(let reason):
+                    Label(reason, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Try Again") {
+                        browseForInstaller()
                     }
+                case .done(let dir, let verified):
+                    installerOptionCard(
+                        icon: "checkmark.circle.fill",
+                        color: .green,
+                        text: verified
+                            ? "Extracted successfully — matches a verified official v1.5 build."
+                            : "Extracted successfully."
+                    )
                     Button("Continue") {
                         gameDirectoryPath = dir
                         onComplete()
                     }
                     .keyboardShortcut(.defaultAction)
                 }
+
+                if !gogInstaller.log.isEmpty {
+                    logView
+                }
+
+                if gogInstaller.isRunning {
+                    Button("Cancel") { gogInstaller.cancel() }
+                }
+            }
+        }
+    }
+
+    private func statusRow(spinning: Bool, text: String) -> some View {
+        HStack {
+            if spinning { ProgressView().controlSize(.small) }
+            Text(text)
+        }
+    }
+
+    private var logView: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                Text(gogInstaller.log)
+                    .font(.system(.caption2, design: .monospaced))
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .id("logEnd")
+            }
+            .frame(height: 140)
+            .background(Color.black.opacity(0.05))
+            .onChange(of: gogInstaller.log) { _ in
+                proxy.scrollTo("logEnd", anchor: .bottom)
             }
         }
     }
@@ -253,24 +312,6 @@ struct OnboardingWizard: View {
                     NSWorkspace.shared.open(URL(string: "https://brew.sh")!)
                 }
             }
-        }
-    }
-
-    private func extractionProgressView(label: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                ProgressView().controlSize(.small)
-                Text(label)
-            }
-            ScrollView {
-                Text(gogInstaller.log)
-                    .font(.system(.caption2, design: .monospaced))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
-            }
-            .frame(height: 140)
-            .background(Color.black.opacity(0.05))
-            Button("Cancel") { gogInstaller.cancel() }
         }
     }
 
