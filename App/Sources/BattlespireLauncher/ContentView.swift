@@ -14,6 +14,13 @@ struct ContentView: View {
     @State private var installer = BrewInstaller()
     @State private var isInstalling = false
     @State private var installLog = ""
+    // versionWarning/verifiedBuildBadge read files on disk directly, but
+    // SwiftUI only re-renders when a tracked @State/@AppStorage value
+    // actually *changes* -- if the wizard patches GAME.EXE in place without
+    // gameDirectoryPath's string value changing (same folder as before),
+    // nothing signals SwiftUI to recompute them. Bumping this on refocus
+    // (e.g. after closing the wizard) forces that section to redraw fresh.
+    @State private var refreshToken = UUID()
 
     private var backend: Backend {
         get { Backend(rawValue: backendRaw) ?? .staging }
@@ -57,6 +64,7 @@ struct ContentView: View {
                         .foregroundStyle(.green)
                 }
             }
+            .id(refreshToken)
 
             GroupBox("CD Image (optional)") {
                 HStack {
@@ -147,6 +155,9 @@ struct ContentView: View {
         .frame(minWidth: 460, minHeight: 480)
         .onAppear {
             if !wizardCompleted { openWindow(id: "onboarding-wizard") }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            refreshToken = UUID()
         }
     }
 

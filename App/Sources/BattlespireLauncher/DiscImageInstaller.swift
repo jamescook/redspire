@@ -1,0 +1,174 @@
+import Foundation
+
+/// Handles the "I have a raw disc image, not installed anywhere" case: the
+/// original retail disc's data track contains both the small program that
+/// belongs on the hard drive (GAME.EXE etc.) and, for this all-in-one .iso
+/// case, that's the only copy of it that exists -- so it has to be pulled
+/// out and copied to a normal folder before it can be MOUNTed as C:. The
+/// .iso itself is kept as-is and used directly as the D: (CD) reference;
+/// only the small program part gets copied out.
+enum DiscImageInstaller {
+    enum ExtractError: LocalizedError {
+        case mountFailed(String)
+        case gameFilesNotFound
+
+        var errorDescription: String? {
+            switch self {
+            case .mountFailed(let reason):
+                return "Couldn't open that disc image: \(reason)"
+            case .gameFilesNotFound:
+                return "Couldn't find the game's files inside that disc image."
+            }
+        }
+    }
+
+    static var installDestination: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("BattlespireLauncher", isDirectory: true)
+            .appendingPathComponent("Disc", isDirectory: true)
+    }
+
+    /// Mounts `isoPath` read-only, copies the game folder out (searching one
+    /// level of nesting, matching the retail disc's common BSPIRE/batspire/
+    /// layout), then unmounts. Returns the copied folder's path.
+    ///
+    /// A raw retail disc is missing several things a working install needs,
+    /// because they're normally produced by the original DOS/Windows
+    /// installer, which this app never runs: SPIRE.CFG doesn't exist on the
+    /// disc at all, and MSS/DIG.INI (the Sound Blaster 16 config for the
+    /// Miles Sound System) is absent even from the disc's own mss/ folder.
+    /// Confirmed by direct A/B testing that DIG.INI's absence alone is what
+    /// caused the severe animation slowdown (the sound driver failing to
+    /// init correctly and retrying/erroring in a way that manifested as
+    /// heavy interrupt/page-table churn) -- not GAME.EXE version, not the CD
+    /// image, not file location. GOG/Steam's packages already have
+    /// everything baked in, which is why only the raw-disc path needs any
+    /// of this. MSS itself also sits as a sibling of the batspire/ folder
+    /// rather than inside it on the disc, so that gets copied in too.
+    static func extractGameFiles(fromISO isoPath: String, runner: ProcessRunning = SystemProcessRunner()) throws -> String {
+        let mountPoint = try mount(isoPath, runner: runner)
+        defer { unmount(mountPoint, runner: runner) }
+
+        guard let sourceDir = Self.findGameDir(atRoot: mountPoint) else {
+            throw ExtractError.gameFilesNotFound
+        }
+
+        let dest = installDestination
+        try? FileManager.default.removeItem(at: dest)
+        try FileManager.default.createDirectory(at: dest, withIntermediateDirectories: true)
+        try copyContents(of: sourceDir, to: dest.path)
+        try fillInMissingSupportFiles(gameDir: dest.path, mountRoot: mountPoint)
+        return dest.path
+    }
+
+    /// Copies MSS in from a sibling of the found game folder if it's missing
+    /// (and present there), then writes the bundled SPIRE.CFG and
+    /// MSS/DIG.INI templates for whichever of those are still missing.
+    static func fillInMissingSupportFiles(gameDir: String, mountRoot: String, fileManager: FileManager = .default) throws {
+        if resolveActualName(in: gameDir, matching: "MSS", fileManager: fileManager) == nil,
+           let mssName = resolveActualName(in: mountRoot, matching: "MSS", fileManager: fileManager) {
+            let src = (mountRoot as NSString).appendingPathComponent(mssName)
+            let dst = (gameDir as NSString).appendingPathComponent("MSS")
+            try? fileManager.removeItem(atPath: dst)
+            try fileManager.copyItem(atPath: src, toPath: dst)
+        }
+
+        try writeBundledTemplateIfMissing(named: "SPIRE.CFG", into: gameDir, fileManager: fileManager)
+
+        let mssDir = (gameDir as NSString).appendingPathComponent(
+            resolveActualName(in: gameDir, matching: "MSS", fileManager: fileManager) ?? "MSS"
+        )
+        if fileManager.fileExists(atPath: mssDir) {
+            try writeBundledTemplateIfMissing(named: "DIG.INI", into: mssDir, fileManager: fileManager)
+        }
+    }
+
+    private static func writeBundledTemplateIfMissing(named name: String, into dir: String, fileManager: FileManager) throws {
+        guard resolveActualName(in: dir, matching: name, fileManager: fileManager) == nil else { return }
+        guard let templateURL = bundledResourceURL(named: name, fileManager: fileManager) else {
+            throw ExtractError.gameFilesNotFound
+        }
+        let dst = (dir as NSString).appendingPathComponent(name)
+        try? fileManager.removeItem(atPath: dst)
+        try fileManager.copyItem(at: templateURL, to: URL(fileURLWithPath: dst))
+    }
+
+    /// build.sh copies these into the real app's Contents/Resources/ directly
+    /// (SPM's generated resource bundle has no Info.plist, which codesign
+    /// refuses to validate as a nested bundle) -- check there first, falling
+    /// back to Bundle.module for local `swift build`/`swift test` runs,
+    /// which don't produce a real .app at all.
+    private static func bundledResourceURL(named name: String, fileManager: FileManager) -> URL? {
+        if let resourceURL = Bundle.main.resourceURL {
+            let candidate = resourceURL.appendingPathComponent(name)
+            if fileManager.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+        }
+        return Bundle.module.url(forResource: name, withExtension: nil)
+    }
+
+    /// Searches `root` (and one level down) for a folder containing
+    /// GAME.EXE. Case-insensitive: DOS is case-insensitive, and archives
+    /// packaged on that side (the official patch ships "game.exe" lowercase)
+    /// don't necessarily match our casing -- macOS's filesystem sometimes
+    /// papers over that and sometimes doesn't, so this checks explicitly
+    /// rather than relying on it. Pure given a FileManager, so it's testable
+    /// against a real temp directory rather than an actually-mounted disc.
+    static func findGameDir(atRoot root: String, fileManager: FileManager = .default) -> String? {
+        if resolveActualName(in: root, matching: "GAME.EXE", fileManager: fileManager) != nil {
+            return root
+        }
+        guard let children = try? fileManager.contentsOfDirectory(atPath: root) else { return nil }
+        for child in children.sorted() {
+            let childPath = (root as NSString).appendingPathComponent(child)
+            var isDir: ObjCBool = false
+            guard fileManager.fileExists(atPath: childPath, isDirectory: &isDir), isDir.boolValue else { continue }
+            if resolveActualName(in: childPath, matching: "GAME.EXE", fileManager: fileManager) != nil {
+                return childPath
+            }
+        }
+        return nil
+    }
+
+    /// Pure: the on-disk name matching `name` case-insensitively, if any.
+    static func resolveActualName(in dir: String, matching name: String, fileManager: FileManager = .default) -> String? {
+        (try? fileManager.contentsOfDirectory(atPath: dir))?.first { $0.caseInsensitiveCompare(name) == .orderedSame }
+    }
+
+    /// Pure: pulls the mount point out of `hdiutil attach -plist`'s output.
+    static func parseMountPoint(fromHdiutilPlistOutput output: String) -> String? {
+        guard let data = output.data(using: .utf8),
+              let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
+              let entities = plist["system-entities"] as? [[String: Any]]
+        else {
+            return nil
+        }
+        return entities.compactMap { $0["mount-point"] as? String }.first
+    }
+
+    private static func mount(_ isoPath: String, runner: ProcessRunning) throws -> String {
+        let result = runner.runSync(executable: "/usr/bin/hdiutil", arguments: ["attach", "-nobrowse", "-readonly", "-plist", isoPath])
+        guard result.exitCode == 0 else {
+            throw ExtractError.mountFailed("hdiutil exited with status \(result.exitCode)")
+        }
+        guard let mountPoint = parseMountPoint(fromHdiutilPlistOutput: result.output) else {
+            throw ExtractError.mountFailed("no mountable volume found in that image")
+        }
+        return mountPoint
+    }
+
+    private static func unmount(_ mountPoint: String, runner: ProcessRunning) {
+        _ = runner.runSync(executable: "/usr/bin/hdiutil", arguments: ["detach", mountPoint, "-quiet"])
+    }
+
+    private static func copyContents(of sourceDir: String, to destDir: String) throws {
+        let fm = FileManager.default
+        for item in try fm.contentsOfDirectory(atPath: sourceDir) {
+            let src = (sourceDir as NSString).appendingPathComponent(item)
+            let dst = (destDir as NSString).appendingPathComponent(item)
+            try? fm.removeItem(atPath: dst)
+            try fm.copyItem(atPath: src, toPath: dst)
+        }
+    }
+}

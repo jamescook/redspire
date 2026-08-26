@@ -8,6 +8,7 @@ enum WizardScreen: Hashable {
     case steamViaCommand
     case steamViaAutomatic
     case gogGuide
+    case manualIssues
 }
 
 enum SteamInstallMethod: String, CaseIterable, Identifiable {
@@ -52,6 +53,7 @@ enum SteamInstallMethod: String, CaseIterable, Identifiable {
 
 struct OnboardingWizard: View {
     @AppStorage("gameDirectoryPath") private var gameDirectoryPath = ""
+    @AppStorage("cdImagePath") private var cdImagePath = ""
     @AppStorage("wizardCompleted") private var wizardCompleted = false
     @Environment(\.dismissWindow) private var dismissWindow
 
@@ -67,6 +69,13 @@ struct OnboardingWizard: View {
     @State private var savedAccounts: [String] = []
     @State private var selectedSavedAccount: String?
     @State private var savedPasswordUnavailable = false
+    @State private var manualGameDir = ""
+    @State private var manualCDImageMissing = false
+    @State private var manualIsOldVersion = false
+    @State private var manualVersionString: String?
+    @State private var manualExtracting = false
+    @State private var manualErrorMessage: String?
+    @State private var manualPatchApplySuccessMessage: String?
     private let credentialStore: CredentialStore = KeychainCredentialStore()
     @StateObject private var gogInstaller = GogInstaller()
     @StateObject private var steamCMDSession = SteamCMDSession()
@@ -80,6 +89,7 @@ struct OnboardingWizard: View {
             case .steamViaCommand: steamViaCommandView
             case .steamViaAutomatic: steamViaAutomaticView
             case .gogGuide: gogGuideView
+            case .manualIssues: manualIssuesView
             }
         }
         .padding(24)
@@ -91,6 +101,10 @@ struct OnboardingWizard: View {
             // screen was showing when it was last closed.
             screen = .chooseSource
             selectedSteamMethod = nil
+            manualErrorMessage = nil
+            manualPatchApplySuccessMessage = nil
+            manualCDImageMissing = false
+            manualIsOldVersion = false
             detectedSteamPath = SteamDetector.findGameDirectory()
             savedAccounts = credentialStore.listAccounts()
         }
@@ -150,9 +164,23 @@ struct OnboardingWizard: View {
 
             sourceCard(
                 title: "I already have it installed",
-                subtitle: "Point me at an existing game folder",
+                subtitle: "Point me at an existing game folder, or a disc image if you haven't unpacked it",
                 systemImage: "folder"
             ) { chooseExistingFolder() }
+
+            if manualExtracting {
+                HStack {
+                    ProgressView().controlSize(.small)
+                    Text("Reading disc image…")
+                }
+                .foregroundStyle(.secondary)
+            }
+            if let manualErrorMessage, screen == .chooseSource {
+                Label(manualErrorMessage, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -197,16 +225,186 @@ struct OnboardingWizard: View {
     }
 
     private func chooseExistingFolder() {
+        manualErrorMessage = nil
         let panel = NSOpenPanel()
-        panel.canChooseFiles = false
+        panel.canChooseFiles = true
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.prompt = "Select"
-        panel.message = "Select the folder containing GAME.EXE"
-        if panel.runModal() == .OK, let url = panel.url {
-            gameDirectoryPath = url.path
+        panel.message = "Select your game folder, or a disc image (.iso) if you haven't unpacked it anywhere"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        var isDirectory: ObjCBool = false
+        FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+
+        if isDirectory.boolValue {
+            finishManualInstall(gameDir: url.path, cdImageOverride: nil)
+        } else if url.pathExtension.lowercased() == "iso" {
+            let isoPath = url.path
+            manualExtracting = true
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let extracted = try DiscImageInstaller.extractGameFiles(fromISO: isoPath)
+                    DispatchQueue.main.async {
+                        manualExtracting = false
+                        finishManualInstall(gameDir: extracted, cdImageOverride: isoPath)
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        manualExtracting = false
+                        manualErrorMessage = error.localizedDescription
+                    }
+                }
+            }
+        } else {
+            manualErrorMessage = "That's not a game folder or a disc image (.iso) -- pick one of those."
+        }
+    }
+
+    private func finishManualInstall(gameDir: String, cdImageOverride: String?) {
+        // Checks one level down too (e.g. a batspire/ subfolder), same as
+        // the disc-image and patch-apply paths -- so picking the outer
+        // folder someone unzipped/extracted to just works.
+        guard let resolvedGameDir = DiscImageInstaller.findGameDir(atRoot: gameDir) else {
+            manualErrorMessage = "Couldn't find GAME.EXE in that folder (checked one level down too) -- pick the folder that has it, or its parent."
+            return
+        }
+
+        manualGameDir = resolvedGameDir
+        gameDirectoryPath = resolvedGameDir
+        if let cdImageOverride {
+            cdImagePath = cdImageOverride
+        }
+
+        // A raw retail-disc layout can have MSS as a sibling of the
+        // batspire/ folder rather than inside it, and no SPIRE.CFG at all
+        // (the original installer generates it, and we never run that) --
+        // same fix as the direct disc-image path, using the originally
+        // picked folder as the place to look for a sibling MSS.
+        try? DiscImageInstaller.fillInMissingSupportFiles(gameDir: resolvedGameDir, mountRoot: gameDir)
+
+        recheckManualInstall()
+        if manualCDImageMissing || manualIsOldVersion {
+            screen = .manualIssues
+        } else {
             complete()
         }
+    }
+
+    private func recheckManualInstall() {
+        let exe = (manualGameDir as NSString).appendingPathComponent("GAME.EXE")
+        manualCDImageMissing = cdImagePath.isEmpty && GameSession.autoDetectCDImage(inGameDir: manualGameDir) == nil
+        let version = GameVersion.detect(gameExePath: exe)
+        manualVersionString = version
+        manualIsOldVersion = !GameVersion.isV15(version)
+    }
+
+    private func chooseCDImageForManualInstall() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [UTType(filenameExtension: "iso"), UTType(filenameExtension: "ins"), UTType(filenameExtension: "cue")].compactMap { $0 }
+        panel.prompt = "Select"
+        panel.message = "Select the disc image (.iso/.ins/.cue)"
+        if panel.runModal() == .OK, let url = panel.url {
+            cdImagePath = url.path
+            manualErrorMessage = nil
+            recheckManualInstall()
+        }
+    }
+
+    private func applyPatchForManualInstall() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.prompt = "Select"
+        panel.message = "Select batpat15.zip (or .exe), or a folder you already extracted it to"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        manualPatchApplySuccessMessage = nil
+        do {
+            try PatchApplier.applyFromZipOrFolder(path: url.path, toGameDir: manualGameDir)
+            recheckManualInstall()
+            if manualIsOldVersion {
+                manualErrorMessage = "Copied files from that, but it still doesn't look like v1.5 (detected: \(manualVersionString ?? "no version string found")). Make sure you picked the official v1.5 patch, not something else."
+            } else {
+                manualErrorMessage = nil
+                let exe = (manualGameDir as NSString).appendingPathComponent("GAME.EXE")
+                let verified = KnownGoodBuilds.isVerified(gameExePath: exe)
+                manualPatchApplySuccessMessage = verified
+                    ? "Update applied — matches a verified official v1.5 build."
+                    : "Update applied — now running \(manualVersionString ?? "v1.5") (doesn't match our known-good checksum, but the version string looks right)."
+            }
+        } catch {
+            manualErrorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - Manual install: issues found
+
+    private var manualIssuesView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            backButton
+            Text("A couple things to check").font(.title2).bold()
+
+            if manualCDImageMissing {
+                issueSection(
+                    title: "Missing a disc file",
+                    detail: "This copy is missing a file the game reads from while playing (music, some game data). If you have it separately -- for example your own disc rip -- add it here.",
+                    actionLabel: "Choose Disc File…",
+                    action: chooseCDImageForManualInstall
+                )
+            }
+
+            if manualIsOldVersion {
+                VStack(alignment: .leading, spacing: 8) {
+                    issueSection(
+                        title: "Older version detected" + (manualVersionString.map { " — \($0)" } ?? ""),
+                        detail: "This looks like the original 1997 release, which has some known bugs (freezing, mouse issues) when run today. There's a free official update that fixes it. Once you've downloaded and unzipped it, point us at those files and we'll copy them in.",
+                        actionLabel: "Apply Update…",
+                        action: applyPatchForManualInstall
+                    )
+                    Button("Get the Update from Archive.org") {
+                        NSWorkspace.shared.open(URL(string: "https://archive.org/details/batpat15")!)
+                    }
+                    .font(.caption)
+                }
+            }
+
+            if let manualPatchApplySuccessMessage {
+                Label(manualPatchApplySuccessMessage, systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let manualErrorMessage {
+                Label(manualErrorMessage, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Divider()
+
+            Button(manualCDImageMissing || manualIsOldVersion ? "Continue Anyway" : "Continue") {
+                complete()
+            }
+            .keyboardShortcut(.defaultAction)
+        }
+    }
+
+    private func issueSection(title: String, detail: String, actionLabel: String, action: @escaping () -> Void) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text(detail)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(actionLabel, action: action)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.08))
+        .cornerRadius(8)
     }
 
     // MARK: - Steam: method choice

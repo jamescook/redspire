@@ -7,7 +7,8 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "BattlespireLauncher",
-            path: "Sources/BattlespireLauncher"
+            path: "Sources/BattlespireLauncher",
+            resources: [.copy("Resources/SPIRE.CFG"), .copy("Resources/DIG.INI")]
         ),
         .testTarget(
             name: "BattlespireLauncherTests",

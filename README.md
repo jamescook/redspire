@@ -29,10 +29,11 @@ DOSBox: wrong video mode, dead mouse, severe slowdown during any animation.
 - **Only have a disc / `.bin`+`.cue` dump?** That's v1.3. Get the official 1.5
   patch (`batpat15.zip` or the self-extracting `batpat15.exe` — same content
   either way, ~1.1MB, 261 files) and apply it, overwriting the old files.
-  Search for it yourself from a source you trust — don't just grab the first
-  hit; the `.exe` in particular is just a ZIP with a stub, so you can unpack it
-  with `unzip`/`7z` without ever executing it, if you'd rather not run a random
-  old binary directly. To sanity-check what you downloaded before trusting it:
+  [Internet Archive hosts it](https://archive.org/details/batpat15); wherever
+  you get it from, verify the hash below before trusting it. The `.exe` in
+  particular is just a ZIP with a stub, so you can unpack it with `unzip`/`7z`
+  without ever executing it, if you'd rather not run a random old binary
+  directly. To sanity-check what you downloaded:
   ```
   unzip batpat15.zip -d batpat15         # or: unzip batpat15.exe -d batpat15
   shasum -a 256 batpat15/GAME.EXE

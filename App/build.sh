@@ -72,6 +72,16 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp ".build/release/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
 cp Info.plist "$APP/Contents/Info.plist"
 
+# SPM's generated resource bundle is an informal folder shape (no Info.plist)
+# that codesign refuses to validate as a nested bundle -- rather than fight
+# that, just copy the actual resource file(s) into the conventional
+# Contents/Resources/ location; see DiscImageInstaller's lookup for the
+# matching read side.
+RESOURCE_BUNDLE=".build/release/${APP_NAME}_${APP_NAME}.bundle"
+if [ -d "$RESOURCE_BUNDLE" ]; then
+  cp -R "$RESOURCE_BUNDLE"/. "$APP/Contents/Resources/"
+fi
+
 echo "==> Codesigning ($CODESIGN_IDENTITY)"
 codesign --force --deep --options runtime --timestamp \
   --sign "$CODESIGN_IDENTITY" "$APP"
