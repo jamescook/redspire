@@ -28,5 +28,10 @@ struct BattlespireLauncherApp: App {
             OnboardingWizard()
         }
         .windowResizability(.contentSize)
+
+        Window("Redguard Setup Wizard", id: "redguard-onboarding-wizard") {
+            RedguardOnboardingWizard()
+        }
+        .windowResizability(.contentSize)
     }
 }

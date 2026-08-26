@@ -9,16 +9,15 @@ struct RootView: View {
     private let modeStore: GameModeStore
 
     @StateObject private var battlespireSession = GameSession()
+    @StateObject private var redguardSession = RedguardGameSession()
 
     init(modeStore: GameModeStore = UserDefaultsGameModeStore()) {
         self.modeStore = modeStore
         _mode = State(initialValue: modeStore.loadMode())
     }
 
-    /// Only Battlespire has a real session today. OR in Redguard's own
-    /// session's isRunning here once ao9.2+ gives it one.
     private var isSessionRunning: Bool {
-        battlespireSession.isRunning
+        battlespireSession.isRunning || redguardSession.isRunning
     }
 
     /// Pure: whether the mode picker should accept input right now.
@@ -40,7 +39,7 @@ struct RootView: View {
         case .battlespire:
             ContentView(session: battlespireSession)
         case .redguard:
-            RedguardComingSoonView()
+            RedguardContentView(session: redguardSession)
         }
     }
 

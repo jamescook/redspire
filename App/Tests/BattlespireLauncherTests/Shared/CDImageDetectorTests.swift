@@ -2,14 +2,14 @@ import Testing
 import Foundation
 @testable import BattlespireLauncher
 
-struct GameSessionCDImageTests {
+struct CDImageDetectorTests {
     @Test func findsInsRegardlessOfFilename() throws {
         let dir = try makeTempDir()
         defer { try? FileManager.default.removeItem(at: dir) }
         FileManager.default.createFile(atPath: dir.appendingPathComponent("Battlespire.ins").path, contents: Data())
         FileManager.default.createFile(atPath: dir.appendingPathComponent("Battlespire.bin").path, contents: Data())
 
-        let found = GameSession.autoDetectCDImage(inGameDir: dir.path)
+        let found = CDImageDetector.autoDetect(inGameDir: dir.path)
         #expect(found == dir.appendingPathComponent("Battlespire.ins").path)
     }
 
@@ -20,7 +20,7 @@ struct GameSessionCDImageTests {
         FileManager.default.createFile(atPath: dir.appendingPathComponent("game.cue").path, contents: Data())
         FileManager.default.createFile(atPath: dir.appendingPathComponent("game.ins").path, contents: Data())
 
-        let found = GameSession.autoDetectCDImage(inGameDir: dir.path)
+        let found = CDImageDetector.autoDetect(inGameDir: dir.path)
         #expect(found == dir.appendingPathComponent("game.ins").path)
     }
 
@@ -29,7 +29,7 @@ struct GameSessionCDImageTests {
         defer { try? FileManager.default.removeItem(at: dir) }
         FileManager.default.createFile(atPath: dir.appendingPathComponent("game.cue").path, contents: Data())
 
-        let found = GameSession.autoDetectCDImage(inGameDir: dir.path)
+        let found = CDImageDetector.autoDetect(inGameDir: dir.path)
         #expect(found == dir.appendingPathComponent("game.cue").path)
     }
 
@@ -38,7 +38,7 @@ struct GameSessionCDImageTests {
         defer { try? FileManager.default.removeItem(at: dir) }
         FileManager.default.createFile(atPath: dir.appendingPathComponent("GAME.EXE").path, contents: Data())
 
-        #expect(GameSession.autoDetectCDImage(inGameDir: dir.path) == nil)
+        #expect(CDImageDetector.autoDetect(inGameDir: dir.path) == nil)
     }
 
     private func makeTempDir() throws -> URL {

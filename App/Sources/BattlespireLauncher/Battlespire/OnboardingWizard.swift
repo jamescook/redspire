@@ -154,13 +154,13 @@ struct OnboardingWizard: View {
                 title: "Steam",
                 subtitle: "I own it on Steam",
                 systemImage: "gamecontroller"
-            ) { screen = .steamMethodChoice }
+            ) { manualErrorMessage = nil; screen = .steamMethodChoice }
 
             sourceCard(
                 title: "GOG",
                 subtitle: "I bought it on GOG.com",
                 systemImage: "arrow.down.circle"
-            ) { screen = .gogGuide }
+            ) { manualErrorMessage = nil; screen = .gogGuide }
 
             sourceCard(
                 title: "I already have it installed",
@@ -293,7 +293,7 @@ struct OnboardingWizard: View {
 
     private func recheckManualInstall() {
         let exe = (manualGameDir as NSString).appendingPathComponent("GAME.EXE")
-        manualCDImageMissing = cdImagePath.isEmpty && GameSession.autoDetectCDImage(inGameDir: manualGameDir) == nil
+        manualCDImageMissing = cdImagePath.isEmpty && CDImageDetector.autoDetect(inGameDir: manualGameDir) == nil
         let version = GameVersion.detect(gameExePath: exe)
         manualVersionString = version
         manualIsOldVersion = !GameVersion.isV15(version)
@@ -489,7 +489,7 @@ struct OnboardingWizard: View {
             }
 
             if !SteamCMDTool.isInstalled {
-                missingHomebrewToolView(
+                MissingHomebrewToolView(
                     toolName: "steamcmd",
                     reason: "it can download the game files directly, without installing the full Steam client",
                     formula: "steamcmd"
@@ -538,7 +538,7 @@ struct OnboardingWizard: View {
             }
 
             if !SteamCMDTool.isInstalled {
-                missingHomebrewToolView(
+                MissingHomebrewToolView(
                     toolName: "steamcmd",
                     reason: "it can download the game files directly, without installing the full Steam client",
                     formula: "steamcmd"
@@ -809,33 +809,11 @@ struct OnboardingWizard: View {
 
 
     private var innoExtractMissingView: some View {
-        missingHomebrewToolView(
+        MissingHomebrewToolView(
             toolName: "innoextract",
             reason: "it's needed to unpack the GOG installer without running it",
             formula: "innoextract"
         )
-    }
-
-    private func missingHomebrewToolView(toolName: String, reason: String, formula: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("\(toolName) isn't installed — \(reason).", systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.orange)
-                .fixedSize(horizontal: false, vertical: true)
-            if Backend.brewPath != nil {
-                Text("Run this in Terminal, then come back:").font(.caption).foregroundStyle(.secondary)
-                Text("brew install \(formula)")
-                    .font(.system(.callout, design: .monospaced))
-                    .padding(6)
-                    .background(Color.gray.opacity(0.15))
-                    .cornerRadius(4)
-            } else {
-                Text("Homebrew isn't installed either. Install it from brew.sh first, then run: brew install \(formula)")
-                    .font(.caption).foregroundStyle(.secondary)
-                Button("Open brew.sh") {
-                    NSWorkspace.shared.open(URL(string: "https://brew.sh")!)
-                }
-            }
-        }
     }
 
     private func browseForInstaller() {
