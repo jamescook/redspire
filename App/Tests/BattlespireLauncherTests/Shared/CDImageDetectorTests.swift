@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import BattlespireLauncher
+@testable import Redspire
 
 struct CDImageDetectorTests {
     @Test func findsInsRegardlessOfFilename() throws {

@@ -1,5 +1,6 @@
 import Testing
-@testable import BattlespireLauncher
+import Foundation
+@testable import Redspire
 
 struct GogInstallerLogicTests {
     // MARK: - rejectionMessage
@@ -56,12 +57,20 @@ struct GogInstallerLogicTests {
     /// called reset() on this object, so re-selecting "GOG" after any
     /// earlier attempt showed that stale stage/log instead of starting
     /// fresh.
-    @Test @MainActor func resetClearsStageAndLogWhenNotRunning() async {
+    @Test @MainActor func resetClearsStageAndLogWhenNotRunning() async throws {
+        // destinationRoot MUST be a throwaway temp dir here -- extract()
+        // unconditionally wipes and recreates it, and this constructor arg
+        // exists specifically so this test doesn't touch the user's real
+        // ~/Library/Application Support (a real bug found live: an earlier
+        // version of this test silently destroyed the user's actual
+        // installed game files on every `swift test` run).
+        let tempRoot = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
         let runner = FakeProcessRunner()
         runner.syncResult = (0, "")
         runner.asyncExitCode = 2
         runner.asyncOutputLines = ["some output\n"]
-        let installer = GogInstaller(runner: runner, innoExtractPath: { "/usr/bin/true" })
+        let installer = GogInstaller(runner: runner, innoExtractPath: { "/usr/bin/true" }, destinationRoot: tempRoot)
 
         installer.extract(installerPath: "/tmp/fake.exe")
         await drainMainActorTasks()
@@ -71,5 +80,11 @@ struct GogInstallerLogicTests {
         installer.reset()
         #expect(installer.stage == nil)
         #expect(installer.log == "")
+    }
+
+    private func makeTempDir() throws -> URL {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
     }
 }

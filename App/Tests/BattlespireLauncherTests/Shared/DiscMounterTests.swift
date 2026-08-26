@@ -1,5 +1,5 @@
 import Testing
-@testable import BattlespireLauncher
+@testable import Redspire
 
 struct DiscMounterTests {
     @Test func parsesMountPointFromHdiutilPlist() {

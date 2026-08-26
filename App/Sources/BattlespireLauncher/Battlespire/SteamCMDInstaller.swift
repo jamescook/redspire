@@ -24,8 +24,7 @@ enum SteamCMDInstaller {
     static let appID = "1812420"
 
     static var installDestination: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("BattlespireLauncher", isDirectory: true)
+        AppSupportDirectory.root
             .appendingPathComponent("Steam", isDirectory: true)
     }
 

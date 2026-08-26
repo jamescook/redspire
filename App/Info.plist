@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Battlespire Launcher</string>
+    <string>Redspire</string>
     <key>CFBundleDisplayName</key>
-    <string>Battlespire Launcher</string>
+    <string>Redspire</string>
     <key>CFBundleIdentifier</key>
-    <string>com.jamescook.BattlespireLauncher</string>
+    <string>com.jamescook.Redspire</string>
     <key>CFBundleVersion</key>
     <string>1.0</string>
     <key>CFBundleShortVersionString</key>
@@ -15,7 +15,7 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
-    <string>BattlespireLauncher</string>
+    <string>Redspire</string>
     <key>LSMinimumSystemVersion</key>
     <string>15.0</string>
     <key>LSApplicationCategoryType</key>

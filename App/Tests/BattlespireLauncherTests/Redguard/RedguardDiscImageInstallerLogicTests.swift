@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import BattlespireLauncher
+@testable import Redspire
 
 struct RedguardDiscImageInstallerLogicTests {
     // MARK: - findDataCab
@@ -117,8 +117,17 @@ struct RedguardDiscImageInstallerLogicTests {
         defer { try? FileManager.default.removeItem(at: dir) }
         FileManager.default.createFile(atPath: dir.appendingPathComponent("DATA1.CAB").path, contents: Data())
 
+        // destinationRoot MUST be a separate throwaway temp dir here (not
+        // `dir`, which simulates the mounted disc) -- extract()
+        // unconditionally wipes and recreates it. Real bug found live: an
+        // earlier version of this test, without this override, destroyed
+        // the user's actual extracted disc install on every `swift test`
+        // run.
+        let destRoot = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: destRoot) }
+
         let runner = HangingUnshieldRunner(mountPoint: dir.path)
-        let installer = RedguardDiscImageInstaller(runner: runner, unshieldPath: { "/usr/bin/true" })
+        let installer = RedguardDiscImageInstaller(runner: runner, unshieldPath: { "/usr/bin/true" }, destinationRoot: destRoot)
 
         installer.extract(isoPath: "/tmp/fake.iso")
         await drainMainActorTasks()

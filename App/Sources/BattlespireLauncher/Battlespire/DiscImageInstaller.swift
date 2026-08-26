@@ -20,8 +20,7 @@ enum DiscImageInstaller {
     }
 
     static var installDestination: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("BattlespireLauncher", isDirectory: true)
+        AppSupportDirectory.root
             .appendingPathComponent("Disc", isDirectory: true)
     }
 

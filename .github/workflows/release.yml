@@ -1,6 +1,6 @@
 name: Release
 
-# Builds, codesigns, and notarizes BattlespireLauncher.app, then attaches the
+# Builds, codesigns, and notarizes Redspire.app, then attaches the
 # notarized .zip to a GitHub Release. Runs on a version tag push (v*), or
 # manually via workflow_dispatch.
 #
@@ -78,11 +78,11 @@ jobs:
       - name: Upload notarized app
         uses: actions/upload-artifact@v4
         with:
-          name: BattlespireLauncher
-          path: App/dist/BattlespireLauncher.zip
+          name: Redspire
+          path: App/dist/Redspire.zip
 
       - name: Attach to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: App/dist/BattlespireLauncher.zip
+          files: App/dist/Redspire.zip

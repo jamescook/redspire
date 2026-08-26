@@ -18,11 +18,23 @@ final class GogInstaller: ObservableObject {
 
     private let runner: ProcessRunning
     private let innoExtractPath: () -> String?
+    private let destinationRoot: URL
     private nonisolated(unsafe) var handle: ProcessHandle?
 
-    init(runner: ProcessRunning = SystemProcessRunner(), innoExtractPath: @escaping () -> String? = { InnoExtractTool.executablePath }) {
+    /// `destinationRoot` is injectable specifically so tests can point this
+    /// at a throwaway temp directory instead of the app's real
+    /// ~/Library/Application Support location -- a real bug found live:
+    /// tests that faked the process runner but not this destroyed the
+    /// user's actual installed files on every `swift test` run, since
+    /// extract() unconditionally wipes and recreates it.
+    init(
+        runner: ProcessRunning = SystemProcessRunner(),
+        innoExtractPath: @escaping () -> String? = { InnoExtractTool.executablePath },
+        destinationRoot: URL = AppSupportDirectory.root
+    ) {
         self.runner = runner
         self.innoExtractPath = innoExtractPath
+        self.destinationRoot = destinationRoot
     }
 
     /// GOG's download page offers two different files for the same game: a
@@ -68,9 +80,7 @@ final class GogInstaller: ObservableObject {
             return
         }
 
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("BattlespireLauncher", isDirectory: true)
-        let dest = appSupport.appendingPathComponent("GOG", isDirectory: true)
+        let dest = destinationRoot.appendingPathComponent("GOG", isDirectory: true)
 
         do {
             try? FileManager.default.removeItem(at: dest)

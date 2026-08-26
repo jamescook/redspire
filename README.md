@@ -45,7 +45,7 @@ From the `App/` folder of this repository:
 ```
 swift test        # optional, confirms everything's working
 ./build.sh
-open dist/BattlespireLauncher.app
+open dist/Redspire.app
 ```
 
 `build.sh` also supports signed, notarized builds for distributing outside

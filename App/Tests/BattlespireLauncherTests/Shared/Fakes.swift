@@ -1,5 +1,5 @@
 import Foundation
-@testable import BattlespireLauncher
+@testable import Redspire
 
 /// FakeProcessRunner invokes its callbacks synchronously and in-line, so
 /// tests that don't themselves hop actors (e.g. BrewInstaller, which isn't

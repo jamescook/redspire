@@ -32,17 +32,23 @@ final class RedguardDiscImageInstaller: ObservableObject {
 
     private let runner: ProcessRunning
     private let unshieldPath: () -> String?
+    private let destinationRoot: URL
     private nonisolated(unsafe) var handle: ProcessHandle?
 
-    init(runner: ProcessRunning = SystemProcessRunner(), unshieldPath: @escaping () -> String? = { UnshieldTool.executablePath }) {
+    /// `destinationRoot` is injectable specifically so tests can point this
+    /// at a throwaway temp directory instead of the app's real
+    /// ~/Library/Application Support location -- a real bug found live:
+    /// tests that faked the process runner but not this destroyed the
+    /// user's actual extracted disc install on every `swift test` run,
+    /// since extract() unconditionally wipes and recreates it.
+    init(
+        runner: ProcessRunning = SystemProcessRunner(),
+        unshieldPath: @escaping () -> String? = { UnshieldTool.executablePath },
+        destinationRoot: URL = AppSupportDirectory.root.appendingPathComponent("RedguardDisc", isDirectory: true)
+    ) {
         self.runner = runner
         self.unshieldPath = unshieldPath
-    }
-
-    static var installDestination: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("BattlespireLauncher", isDirectory: true)
-            .appendingPathComponent("RedguardDisc", isDirectory: true)
+        self.destinationRoot = destinationRoot
     }
 
     /// Pure: the on-disk name of the InstallShield cabinet, if present.
@@ -98,7 +104,7 @@ final class RedguardDiscImageInstaller: ObservableObject {
         }
         let cabPath = (mountPoint as NSString).appendingPathComponent(cabName)
 
-        let dest = Self.installDestination
+        let dest = destinationRoot
         do {
             try? FileManager.default.removeItem(at: dest)
             try FileManager.default.createDirectory(at: dest, withIntermediateDirectories: true)

@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import BattlespireLauncher
+@testable import Redspire
 
 struct RedguardGogInstallerLogicTests {
     // MARK: - resolveStage
@@ -48,12 +48,18 @@ struct RedguardGogInstallerLogicTests {
     /// Real bug: the wizard never called reset() on this object at all, so
     /// re-selecting "GOG" after any earlier attempt (even a failed one)
     /// showed that stale stage/log instead of starting fresh.
-    @Test @MainActor func resetClearsStageAndLogWhenNotRunning() async {
+    @Test @MainActor func resetClearsStageAndLogWhenNotRunning() async throws {
+        // destinationRoot MUST be a throwaway temp dir here -- see
+        // GogInstallerLogicTests' identical comment for the real bug this
+        // avoids (an earlier version of this test destroyed the user's
+        // actual extracted install on every `swift test` run).
+        let tempRoot = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
         let runner = FakeProcessRunner()
         runner.syncResult = (0, "")
         runner.asyncExitCode = 2
         runner.asyncOutputLines = ["some output\n"]
-        let installer = RedguardGogInstaller(runner: runner, innoExtractPath: { "/usr/bin/true" })
+        let installer = RedguardGogInstaller(runner: runner, innoExtractPath: { "/usr/bin/true" }, destinationRoot: tempRoot)
 
         installer.extract(installerPath: "/tmp/fake.exe")
         await drainMainActorTasks()
@@ -78,8 +84,10 @@ struct RedguardGogInstallerLogicTests {
         }
     }
 
-    @Test @MainActor func resetIsNoOpWhileRunning() async {
-        let installer = RedguardGogInstaller(runner: HangingProcessRunner(), innoExtractPath: { "/usr/bin/true" })
+    @Test @MainActor func resetIsNoOpWhileRunning() async throws {
+        let tempRoot = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+        let installer = RedguardGogInstaller(runner: HangingProcessRunner(), innoExtractPath: { "/usr/bin/true" }, destinationRoot: tempRoot)
 
         installer.extract(installerPath: "/tmp/fake.exe")
         await drainMainActorTasks()

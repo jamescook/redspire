@@ -1,5 +1,5 @@
 import Testing
-@testable import BattlespireLauncher
+@testable import Redspire
 
 /// Focused on what actually differs from Battlespire's SteamDetector --
 /// AppID and the exe-relative-path check. The VDF-parsing logic itself is

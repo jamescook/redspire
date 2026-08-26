@@ -16,7 +16,7 @@ protocol CredentialStore {
 /// the system's own Keychain-access prompt; this app never sees that gate,
 /// it just gets denied or handed the bytes.
 struct KeychainCredentialStore: CredentialStore {
-    private let service = "com.jamescook.BattlespireLauncher.steamcmd"
+    private let service = "com.jamescook.Redspire.steamcmd"
 
     func listAccounts() -> [String] {
         let query: [String: Any] = [

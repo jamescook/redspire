@@ -5,6 +5,12 @@ import SwiftUI
 /// running as orphans (confirmed via `ps`; Foundation's Process doesn't do
 /// this automatically when its Swift wrapper is deallocated).
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // One-time: carry over installs/extractions from before the app
+        // was renamed from BattlespireLauncher to Redspire.
+        AppSupportDirectory.migrateFromLegacyNameIfNeeded()
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         ProcessRegistry.shared.terminateAll()
         return .terminateNow
@@ -12,7 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct BattlespireLauncherApp: App {
+struct RedspireApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {

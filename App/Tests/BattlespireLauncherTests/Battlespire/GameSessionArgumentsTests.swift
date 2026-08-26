@@ -1,5 +1,5 @@
 import Testing
-@testable import BattlespireLauncher
+@testable import Redspire
 
 struct GameSessionArgumentsTests {
     @Test func stagingBackendOmitsNoPromptFolder() {

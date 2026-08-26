@@ -31,17 +31,9 @@ keychain profile — see the comment block at the top of `App/build.sh`.
 4. Commit: `Release vX.Y.Z` (bump + changelog together).
 5. Tag and push: `git tag vX.Y.Z && git push origin main vX.Y.Z`. The tag
    push triggers CI, which runs the test suite, builds, codesigns,
-   notarizes, and attaches `BattlespireLauncher.zip` to a new GitHub
-   Release for that tag automatically.
+   notarizes, and attaches `Redspire.zip` to a new GitHub Release for that
+   tag automatically.
 6. Verify the release: download the attached `.zip` fresh, `xattr -d
    com.apple.quarantine` isn't needed for a properly notarized+stapled
-   build, but `spctl -a -vvv -t install BattlespireLauncher.app` should
-   report `accepted` / `source=Notarized Developer ID`.
-
-## Before the first release that includes Redguard support
-
-The app, its bundle ID, and its distributed name are all still
-"BattlespireLauncher" — fine while this is a single-game app, but worth
-deciding on a real multi-game product name/identity before shipping a
-release where Redguard is actually selectable, rather than after. Not
-blocking today's Battlespire-only releases.
+   build, but `spctl -a -vvv -t install Redspire.app` should report
+   `accepted` / `source=Notarized Developer ID`.

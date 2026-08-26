@@ -22,11 +22,21 @@ final class RedguardGogInstaller: ObservableObject {
 
     private let runner: ProcessRunning
     private let innoExtractPath: () -> String?
+    private let destinationRoot: URL
     private nonisolated(unsafe) var handle: ProcessHandle?
 
-    init(runner: ProcessRunning = SystemProcessRunner(), innoExtractPath: @escaping () -> String? = { InnoExtractTool.executablePath }) {
+    /// `destinationRoot` is injectable specifically so tests can point this
+    /// at a throwaway temp directory instead of the app's real
+    /// ~/Library/Application Support location -- see GogInstaller's
+    /// identical parameter for the real bug this fixes.
+    init(
+        runner: ProcessRunning = SystemProcessRunner(),
+        innoExtractPath: @escaping () -> String? = { InnoExtractTool.executablePath },
+        destinationRoot: URL = AppSupportDirectory.root
+    ) {
         self.runner = runner
         self.innoExtractPath = innoExtractPath
+        self.destinationRoot = destinationRoot
     }
 
     /// Pure mapping from the extraction outcome to the resulting UI stage.
@@ -65,9 +75,7 @@ final class RedguardGogInstaller: ObservableObject {
             return
         }
 
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("BattlespireLauncher", isDirectory: true)
-        let dest = appSupport.appendingPathComponent("RedguardGOG", isDirectory: true)
+        let dest = destinationRoot.appendingPathComponent("RedguardGOG", isDirectory: true)
 
         do {
             try? FileManager.default.removeItem(at: dest)

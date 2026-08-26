@@ -11,8 +11,7 @@ enum RedguardSteamCMDInstaller {
     static let appID = "1812410"
 
     static var installDestination: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("BattlespireLauncher", isDirectory: true)
+        AppSupportDirectory.root
             .appendingPathComponent("RedguardSteam", isDirectory: true)
     }
 

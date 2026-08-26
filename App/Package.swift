@@ -2,11 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "BattlespireLauncher",
+    name: "Redspire",
     platforms: [.macOS(.v15)],
     targets: [
         .executableTarget(
-            name: "BattlespireLauncher",
+            name: "Redspire",
             path: "Sources/BattlespireLauncher",
             resources: [
                 .copy("Battlespire/Resources/SPIRE.CFG"),
@@ -18,8 +18,8 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "BattlespireLauncherTests",
-            dependencies: ["BattlespireLauncher"],
+            name: "RedspireTests",
+            dependencies: ["Redspire"],
             path: "Tests/BattlespireLauncherTests"
         ),
     ]

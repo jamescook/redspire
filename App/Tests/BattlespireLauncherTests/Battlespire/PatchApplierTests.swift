@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import BattlespireLauncher
+@testable import Redspire
 
 struct PatchApplierTests {
     @Test func copiesExeAndOverwritesGameData() throws {

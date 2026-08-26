@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build, codesign, and (optionally) notarize BattlespireLauncher.app.
+# Build, codesign, and (optionally) notarize Redspire.app.
 #
 # Usage:
 #   ./build.sh                 Build + codesign only (runs locally fine unnotarized).
@@ -14,7 +14,7 @@
 #                        Defaults to auto-detecting the sole such identity in
 #                        your keychain (errors out if there's none or more
 #                        than one -- set this explicitly in that case).
-#   APP_NAME             Defaults to "BattlespireLauncher".
+#   APP_NAME             Defaults to "Redspire".
 #
 # Notarization needs Apple credentials, via ONE of two methods:
 #
@@ -40,7 +40,7 @@ if [ -f .env ]; then
   set +a
 fi
 
-APP_NAME="${APP_NAME:-BattlespireLauncher}"
+APP_NAME="${APP_NAME:-Redspire}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-battlespire-notary}"
 
 if [ -z "${CODESIGN_IDENTITY:-}" ]; then
