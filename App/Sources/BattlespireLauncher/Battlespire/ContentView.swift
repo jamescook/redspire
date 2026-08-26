@@ -10,7 +10,7 @@ struct ContentView: View {
     @AppStorage("wizardCompleted") private var wizardCompleted = false
     @Environment(\.openWindow) private var openWindow
 
-    @StateObject private var session = GameSession()
+    @ObservedObject var session: GameSession
     @State private var installer = BrewInstaller()
     @State private var isInstalling = false
     @State private var installLog = ""

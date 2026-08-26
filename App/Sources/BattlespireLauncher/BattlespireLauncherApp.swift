@@ -17,7 +17,7 @@ struct BattlespireLauncherApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
         }
         .windowResizability(.contentSize)
 
