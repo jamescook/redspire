@@ -9,7 +9,7 @@ enum InnoExtractTool {
     ]
 
     static var executablePath: String? {
-        candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
+        ExecutableLocator.firstExecutable(in: candidates)
     }
 
     static var isInstalled: Bool { executablePath != nil }

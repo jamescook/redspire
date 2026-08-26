@@ -40,6 +40,67 @@ final class FakeProcessHandle: ProcessHandle {
     func terminate() { terminated = true }
 }
 
+/// Mirrors FakeProcessRunner for the interactive (stdin-capable) seam.
+final class FakeInteractiveProcessRunner: InteractiveProcessRunning {
+    var outputLines: [String] = []
+    var exitCode: Int32 = 0
+
+    private(set) var calls: [(executable: String, arguments: [String])] = []
+    private(set) var sentLines: [String] = []
+    private(set) var lastHandle: FakeInteractiveProcessHandle?
+
+    @discardableResult
+    func start(
+        executable: String,
+        arguments: [String],
+        onOutput: @escaping (String) -> Void,
+        onExit: @escaping (Int32) -> Void
+    ) -> InteractiveProcessHandle {
+        calls.append((executable, arguments))
+        let handle = FakeInteractiveProcessHandle(onSend: { [weak self] line in self?.sentLines.append(line) })
+        lastHandle = handle
+        for line in outputLines { onOutput(line) }
+        onExit(exitCode)
+        return handle
+    }
+}
+
+final class FakeInteractiveProcessHandle: InteractiveProcessHandle {
+    private(set) var terminated = false
+    private let onSend: (String) -> Void
+
+    init(onSend: @escaping (String) -> Void) {
+        self.onSend = onSend
+    }
+
+    func sendLine(_ text: String) { onSend(text) }
+    func terminate() { terminated = true }
+}
+
+/// In-memory stand-in for the real Keychain-backed CredentialStore.
+final class FakeCredentialStore: CredentialStore {
+    private var storage: [String: String] = [:]
+    private(set) var saveCalls: [(password: String, account: String)] = []
+    private(set) var deleteCalls: [String] = []
+
+    func listAccounts() -> [String] { storage.keys.sorted() }
+    func password(for account: String) -> String? { storage[account] }
+
+    @discardableResult
+    func save(password: String, for account: String) -> Bool {
+        saveCalls.append((password, account))
+        storage[account] = password
+        return true
+    }
+
+    @discardableResult
+    func delete(account: String) -> Bool {
+        deleteCalls.append(account)
+        storage.removeValue(forKey: account)
+        return true
+    }
+}
+
 /// In-memory stand-in for SteamDetector's two disk reads.
 struct FakeFileProvider: FileProviding {
     var files: [String: String] = [:]

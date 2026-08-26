@@ -12,8 +12,8 @@ enum GameSessionError: LocalizedError {
             return "\(backend.displayName) isn't installed. Run: \(backend.installHint)"
         case .gameExeNotFound(let dir):
             return "GAME.EXE not found in \(dir). Point at the folder that contains it directly."
-        case .cdImageNotFound(let path):
-            return "CD image not found at \(path)."
+        case .cdImageNotFound(let dir):
+            return "No CD image (.ins/.cue/.iso) found in \(dir). Pick one manually if it's named unusually."
         }
     }
 }
@@ -26,6 +26,21 @@ final class GameSession: ObservableObject {
     @Published var lastError: String?
 
     private var process: Process?
+
+    /// Auto-detects a CD image inside the game folder by extension rather
+    /// than a fixed filename, since distributors disagree on naming --
+    /// GOG ships game.ins, Steam ships Battlespire.ins for the same game.
+    /// Prefers .ins (has the redbook-audio track map), falls back to a bare
+    /// .cue or .iso if that's all a given install has.
+    nonisolated static func autoDetectCDImage(inGameDir gameDir: String, fileManager: FileManager = .default) -> String? {
+        guard let entries = try? fileManager.contentsOfDirectory(atPath: gameDir) else { return nil }
+        for ext in ["ins", "cue", "iso"] {
+            if let match = entries.first(where: { ($0 as NSString).pathExtension.lowercased() == ext }) {
+                return (gameDir as NSString).appendingPathComponent(match)
+            }
+        }
+        return nil
+    }
 
     /// Pure: the exact DOSBox argv for a launch, mirroring play-battlespire.sh.
     /// Testable without spawning DOSBox.
@@ -62,11 +77,15 @@ final class GameSession: ObservableObject {
             return
         }
 
-        let cdImage = cdImagePathOverride.isEmpty
-            ? (gameDir as NSString).appendingPathComponent("game.ins")
+        guard let cdImage = cdImagePathOverride.isEmpty
+            ? GameSession.autoDetectCDImage(inGameDir: gameDir)
             : cdImagePathOverride
+        else {
+            lastError = GameSessionError.cdImageNotFound(gameDir).errorDescription
+            return
+        }
         guard FileManager.default.fileExists(atPath: cdImage) else {
-            lastError = GameSessionError.cdImageNotFound(cdImage).errorDescription
+            lastError = GameSessionError.cdImageNotFound(gameDir).errorDescription
             return
         }
 

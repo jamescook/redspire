@@ -18,7 +18,7 @@ final class GogInstaller: ObservableObject {
 
     private let runner: ProcessRunning
     private let innoExtractPath: () -> String?
-    private var handle: ProcessHandle?
+    private nonisolated(unsafe) var handle: ProcessHandle?
 
     init(runner: ProcessRunning = SystemProcessRunner(), innoExtractPath: @escaping () -> String? = { InnoExtractTool.executablePath }) {
         self.runner = runner
@@ -119,6 +119,13 @@ final class GogInstaller: ObservableObject {
     }
 
     func cancel() {
+        handle?.terminate()
+    }
+
+    deinit {
+        // See SteamCMDSession's deinit -- Foundation's Process doesn't kill
+        // its child on dealloc; without this, closing the wizard mid-extract
+        // leaves innoextract running as an orphan.
         handle?.terminate()
     }
 }

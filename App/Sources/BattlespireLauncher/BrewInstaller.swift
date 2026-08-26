@@ -6,28 +6,24 @@ import Foundation
 final class BrewInstaller {
     private let runner: ProcessRunning
     private let brewPath: () -> String?
-    private var handle: ProcessHandle?
 
     init(runner: ProcessRunning = SystemProcessRunner(), brewPath: @escaping () -> String? = { Backend.brewPath }) {
         self.runner = runner
         self.brewPath = brewPath
     }
 
-    func install(formula: String, onOutput: @escaping (String) -> Void, onComplete: @escaping (Bool) -> Void) {
+    func install(formula: String, onOutput: @escaping @Sendable (String) -> Void, onComplete: @escaping @Sendable (Bool) -> Void) {
         guard let brew = brewPath() else {
             onOutput("Homebrew not found.\n")
             onComplete(false)
             return
         }
 
-        handle = runner.runAsync(
+        runner.runAsync(
             executable: brew,
             arguments: ["install", formula],
             onOutput: onOutput,
-            onExit: { [weak self] status in
-                self?.handle = nil
-                onComplete(status == 0)
-            }
+            onExit: { status in onComplete(status == 0) }
         )
     }
 }

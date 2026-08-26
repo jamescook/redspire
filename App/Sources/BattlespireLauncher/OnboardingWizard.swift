@@ -8,13 +8,24 @@ private enum WizardScreen {
 }
 
 struct OnboardingWizard: View {
-    @Binding var gameDirectoryPath: String
-    var onComplete: () -> Void
+    @AppStorage("gameDirectoryPath") private var gameDirectoryPath = ""
+    @AppStorage("wizardCompleted") private var wizardCompleted = false
+    @Environment(\.dismissWindow) private var dismissWindow
 
     @State private var screen: WizardScreen = .chooseSource
     @State private var detectedSteamPath: String?
     @State private var steamRedetectAttempted = false
+    @State private var steamUsername = ""
+    @State private var steamPassword = ""
+    @State private var steamGuardCode = ""
+    @State private var rememberPassword = false
+    @State private var commandCopied = false
+    @State private var savedAccounts: [String] = []
+    @State private var selectedSavedAccount: String?
+    @State private var savedPasswordUnavailable = false
+    private let credentialStore: CredentialStore = KeychainCredentialStore()
     @StateObject private var gogInstaller = GogInstaller()
+    @StateObject private var steamCMDSession = SteamCMDSession()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -25,10 +36,13 @@ struct OnboardingWizard: View {
             }
         }
         .padding(24)
-        .frame(width: 520, alignment: .top)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(width: 520, height: 600, alignment: .top)
         .onAppear {
             detectedSteamPath = SteamDetector.findGameDirectory()
+            savedAccounts = credentialStore.listAccounts()
+        }
+        .onChange(of: steamCMDSession.stage) {
+            savedAccounts = credentialStore.listAccounts()
         }
     }
 
@@ -36,8 +50,13 @@ struct OnboardingWizard: View {
 
     private var chooseSourceView: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Welcome to Battlespire Launcher")
-                .font(.title2).bold()
+            HStack {
+                Text("Welcome to Battlespire Launcher")
+                    .font(.title2).bold()
+                Spacer()
+                Button("Cancel") { cancel() }
+                    .keyboardShortcut(.cancelAction)
+            }
             Text("Let's find your copy of the game.")
                 .foregroundStyle(.secondary)
 
@@ -53,7 +72,7 @@ struct OnboardingWizard: View {
                             .truncationMode(.middle)
                         Button("Use This Copy") {
                             gameDirectoryPath = detected
-                            onComplete()
+                            complete()
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -133,7 +152,7 @@ struct OnboardingWizard: View {
         panel.message = "Select the folder containing GAME.EXE"
         if panel.runModal() == .OK, let url = panel.url {
             gameDirectoryPath = url.path
-            onComplete()
+            complete()
         }
     }
 
@@ -143,33 +162,210 @@ struct OnboardingWizard: View {
         VStack(alignment: .leading, spacing: 16) {
             backButton
             Text("Install via Steam").font(.title2).bold()
-            Text("""
-            Battlespire is on Steam (AppID 1812420, ~$6). Install it normally \
-            through the Steam app, then come back here and click Detect Again.
-            """)
-            .fixedSize(horizontal: false, vertical: true)
+            Label("Battlespire doesn't appear to be installed via Steam yet.", systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
 
-            Button("Open Steam Store Page") {
-                NSWorkspace.shared.open(URL(string: "https://store.steampowered.com/app/1812420")!)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Option 1: the Steam app").font(.headline)
+                Text("Install it normally through Steam, then click Detect Again below.")
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Open Steam Store Page") {
+                    NSWorkspace.shared.open(URL(string: "https://store.steampowered.com/app/1812420")!)
+                }
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 4) {
+                    Text("Option 2: steamcmd").font(.headline)
+                    InfoTooltip(
+                        text: "steamcmd is Valve's official command-line tool for downloading Steam games without the full Steam app — handy for headless/automated installs.",
+                        linkURL: URL(string: "https://developer.valvesoftware.com/wiki/SteamCMD")!
+                    )
+                }
+                if !SteamCMDTool.isInstalled {
+                    missingHomebrewToolView(
+                        toolName: "steamcmd",
+                        reason: "it can download the game files directly, without installing the full Steam client",
+                        formula: "steamcmd"
+                    )
+                } else if steamCMDSession.stage != nil {
+                    steamCMDSessionView
+                } else {
+                    if !savedAccounts.isEmpty {
+                        savedAccountPicker
+                    }
+                    if selectedSavedAccount == nil {
+                        TextField("Steam username", text: $steamUsername)
+                            .textFieldStyle(.roundedBorder)
+                            .textContentType(.username)
+                            .frame(maxWidth: 240)
+                    }
+
+                    HStack(alignment: .top, spacing: 24) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Run it here").font(.subheadline).bold()
+                            if selectedSavedAccount != nil {
+                                Label("Using the saved password for this account.", systemImage: "checkmark.circle")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("Password and Steam Guard code stay local to this steamcmd process.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                NativeSecureField(placeholder: "Steam password", text: $steamPassword)
+                                    .frame(maxWidth: 200, maxHeight: 22)
+                                Toggle("Remember this password in Keychain", isOn: $rememberPassword)
+                                    .font(.caption)
+                            }
+                            Button("Run for Me") {
+                                steamCMDSession.start(
+                                    username: steamUsername,
+                                    password: steamPassword,
+                                    destDir: SteamCMDInstaller.installDestination.path,
+                                    rememberPassword: rememberPassword
+                                )
+                            }
+                            .disabled(steamUsername.trimmingCharacters(in: .whitespaces).isEmpty || steamPassword.isEmpty)
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Or run it yourself").font(.subheadline).bold()
+                            Text(SteamCMDInstaller.command(username: steamUsername, destDir: SteamCMDInstaller.installDestination.path))
+                                .font(.system(.caption2, design: .monospaced))
+                                .padding(8)
+                                .background(Color.gray.opacity(0.15))
+                                .cornerRadius(4)
+                                .textSelection(.enabled)
+                            HStack {
+                                Button(commandCopied ? "Copied!" : "Copy Command") {
+                                    let pb = NSPasteboard.general
+                                    pb.clearContents()
+                                    pb.setString(SteamCMDInstaller.command(username: steamUsername, destDir: SteamCMDInstaller.installDestination.path), forType: .string)
+                                    commandCopied = true
+                                }
+                                Button("Open Terminal") { openTerminal() }
+                            }
+                        }
+                    }
+                }
             }
 
             Divider()
 
             Button("Detect Again") {
                 steamRedetectAttempted = true
-                if let found = SteamDetector.findGameDirectory() {
+                if let found = SteamDetector.findGameDirectory() ?? SteamCMDInstaller.findInstalledGameDir() {
                     gameDirectoryPath = found
-                    onComplete()
+                    complete()
                 }
             }
             .keyboardShortcut(.defaultAction)
 
-            if steamRedetectAttempted && SteamDetector.findGameDirectory() == nil {
+            if steamRedetectAttempted && SteamDetector.findGameDirectory() == nil && SteamCMDInstaller.findInstalledGameDir() == nil {
                 Label("Still not found. Make sure the install finished, then try again.", systemImage: "exclamationmark.triangle")
                     .font(.callout)
                     .foregroundStyle(.orange)
             }
         }
+    }
+
+    private var savedAccountPicker: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Picker("Saved account", selection: $selectedSavedAccount) {
+                Text("Use a different account").tag(String?.none)
+                ForEach(savedAccounts, id: \.self) { account in
+                    Text(account).tag(String?.some(account))
+                }
+            }
+            .frame(maxWidth: 280)
+            .onChange(of: selectedSavedAccount) { _, newValue in
+                guard let account = newValue else {
+                    steamUsername = ""
+                    steamPassword = ""
+                    return
+                }
+                steamUsername = account
+                if let saved = credentialStore.password(for: account) {
+                    steamPassword = saved
+                } else {
+                    // Deleted from Keychain outside the app, access denied, etc.
+                    // Fall back to manual entry rather than a silently-stuck button.
+                    savedPasswordUnavailable = true
+                    selectedSavedAccount = nil
+                    steamPassword = ""
+                }
+            }
+
+            if savedPasswordUnavailable {
+                Label("Saved password unavailable — enter it again below.", systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+
+            if let account = selectedSavedAccount {
+                Button("Forget This Account", role: .destructive) {
+                    credentialStore.delete(account: account)
+                    savedAccounts.removeAll { $0 == account }
+                    selectedSavedAccount = nil
+                    steamUsername = ""
+                    steamPassword = ""
+                }
+                .font(.caption)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var steamCMDSessionView: some View {
+        switch steamCMDSession.stage {
+        case .running:
+            HStack {
+                ProgressView().controlSize(.small)
+                Text("Running steamcmd…")
+            }
+            if steamCMDSession.log.localizedCaseInsensitiveContains("confirm the login in the Steam Mobile app") {
+                Label("Check your phone — approve this sign-in in the Steam Mobile app.", systemImage: "iphone")
+                    .foregroundStyle(.blue)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            LogScrollView(text: steamCMDSession.log)
+            HStack {
+                TextField("Steam Guard code (if asked by email/SMS)", text: $steamGuardCode)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 220)
+                Button("Send") {
+                    steamCMDSession.send(steamGuardCode)
+                    steamGuardCode = ""
+                }
+                .disabled(steamGuardCode.isEmpty)
+            }
+            Button("Cancel") { steamCMDSession.cancel() }
+        case .failed(let reason):
+            Label(reason, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.red)
+                .fixedSize(horizontal: false, vertical: true)
+            LogScrollView(text: steamCMDSession.log)
+            Button("Try Again") { steamCMDSession.reset() }
+        case .done(let dir):
+            installerOptionCard(icon: "checkmark.circle.fill", color: .green, text: "Downloaded successfully via steamcmd.")
+            Button("Continue") {
+                gameDirectoryPath = dir
+                complete()
+            }
+            .keyboardShortcut(.defaultAction)
+        case .none:
+            EmptyView()
+        }
+    }
+
+    private func openTerminal() {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
     }
 
     // MARK: - GOG guide
@@ -252,13 +448,13 @@ struct OnboardingWizard: View {
                     )
                     Button("Continue") {
                         gameDirectoryPath = dir
-                        onComplete()
+                        complete()
                     }
                     .keyboardShortcut(.defaultAction)
                 }
 
                 if !gogInstaller.log.isEmpty {
-                    logView
+                    LogScrollView(text: gogInstaller.log)
                 }
 
                 if gogInstaller.isRunning {
@@ -275,38 +471,29 @@ struct OnboardingWizard: View {
         }
     }
 
-    private var logView: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                Text(gogInstaller.log)
-                    .font(.system(.caption2, design: .monospaced))
-                    .padding(8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
-                    .id("logEnd")
-            }
-            .frame(height: 140)
-            .background(Color.black.opacity(0.05))
-            .onChange(of: gogInstaller.log) { _ in
-                proxy.scrollTo("logEnd", anchor: .bottom)
-            }
-        }
-    }
 
     private var innoExtractMissingView: some View {
+        missingHomebrewToolView(
+            toolName: "innoextract",
+            reason: "it's needed to unpack the GOG installer without running it",
+            formula: "innoextract"
+        )
+    }
+
+    private func missingHomebrewToolView(toolName: String, reason: String, formula: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("innoextract isn't installed — it's needed to unpack the GOG installer without running it.", systemImage: "exclamationmark.triangle")
+            Label("\(toolName) isn't installed — \(reason).", systemImage: "exclamationmark.triangle")
                 .foregroundStyle(.orange)
                 .fixedSize(horizontal: false, vertical: true)
             if Backend.brewPath != nil {
                 Text("Run this in Terminal, then come back:").font(.caption).foregroundStyle(.secondary)
-                Text("brew install innoextract")
+                Text("brew install \(formula)")
                     .font(.system(.callout, design: .monospaced))
                     .padding(6)
                     .background(Color.gray.opacity(0.15))
                     .cornerRadius(4)
             } else {
-                Text("Homebrew isn't installed either. Install it from brew.sh first, then run: brew install innoextract")
+                Text("Homebrew isn't installed either. Install it from brew.sh first, then run: brew install \(formula)")
                     .font(.caption).foregroundStyle(.secondary)
                 Button("Open brew.sh") {
                     NSWorkspace.shared.open(URL(string: "https://brew.sh")!)
@@ -336,5 +523,14 @@ struct OnboardingWizard: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
+    }
+
+    private func complete() {
+        wizardCompleted = true
+        dismissWindow(id: "onboarding-wizard")
+    }
+
+    private func cancel() {
+        dismissWindow(id: "onboarding-wizard")
     }
 }

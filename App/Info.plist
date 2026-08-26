@@ -17,7 +17,7 @@
     <key>CFBundleExecutable</key>
     <string>BattlespireLauncher</string>
     <key>LSMinimumSystemVersion</key>
-    <string>13.0</string>
+    <string>15.0</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.games</string>
     <key>NSHighResolutionCapable</key>

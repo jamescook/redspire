@@ -7,8 +7,8 @@
 #   <game-directory>  Directory containing GAME.EXE, GameData, SPIRE.CFG,
 #                      SPIRE.BAT, MSS directly (not a parent folder).
 #   [cd-image.iso]     CD data-track image to mount as D:. If omitted, looks
-#                      for game.ins inside <game-directory> (GOG/Steam installs
-#                      ship this already).
+#                      for a .ins/.cue/.iso inside <game-directory> (GOG/Steam
+#                      installs ship one already, under different names).
 #
 # Options:
 #   -b, --backend <name> DOSBox backend: "staging" (default) or "x".
@@ -62,10 +62,12 @@ fi
 if [ $# -ge 2 ]; then
   CD_IMAGE=$(cd "$(dirname "$2")" && pwd)/$(basename "$2")
 else
-  CD_IMAGE="$GAME_DIR/game.ins"
+  # Distributors disagree on the filename (GOG ships game.ins, Steam ships
+  # <GameName>.ins for the same game) -- detect by extension instead.
+  CD_IMAGE=$(find "$GAME_DIR" -maxdepth 1 \( -iname '*.ins' -o -iname '*.cue' -o -iname '*.iso' \) -print -quit)
 fi
-if [ ! -f "$CD_IMAGE" ]; then
-  echo "Error: CD image not found at $CD_IMAGE" >&2
+if [ -z "$CD_IMAGE" ] || [ ! -f "$CD_IMAGE" ]; then
+  echo "Error: no CD image (.ins/.cue/.iso) found in $GAME_DIR" >&2
   echo "Pass one explicitly: $0 <game-directory> <cd-image.iso>" >&2
   exit 1
 fi

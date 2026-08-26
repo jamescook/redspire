@@ -19,8 +19,8 @@ protocol ProcessRunning {
     func runAsync(
         executable: String,
         arguments: [String],
-        onOutput: @escaping (String) -> Void,
-        onExit: @escaping (Int32) -> Void
+        onOutput: @escaping @Sendable (String) -> Void,
+        onExit: @escaping @Sendable (Int32) -> Void
     ) -> ProcessHandle
 }
 
@@ -55,8 +55,8 @@ final class SystemProcessRunner: ProcessRunning {
     func runAsync(
         executable: String,
         arguments: [String],
-        onOutput: @escaping (String) -> Void,
-        onExit: @escaping (Int32) -> Void
+        onOutput: @escaping @Sendable (String) -> Void,
+        onExit: @escaping @Sendable (Int32) -> Void
     ) -> ProcessHandle {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: executable)
@@ -76,11 +76,13 @@ final class SystemProcessRunner: ProcessRunning {
 
         proc.terminationHandler = { p in
             pipe.fileHandleForReading.readabilityHandler = nil
+            ProcessRegistry.shared.unregister(p)
             onExit(p.terminationStatus)
         }
 
         do {
             try proc.run()
+            ProcessRegistry.shared.register(proc)
         } catch {
             pipe.fileHandleForReading.readabilityHandler = nil
             onOutput("Failed to run \(executable): \(error.localizedDescription)\n")

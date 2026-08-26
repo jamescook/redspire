@@ -34,8 +34,8 @@ struct BrewInstallerTests {
         runner.asyncExitCode = 0
         let installer = BrewInstaller(runner: runner, brewPath: { "/opt/homebrew/bin/brew" })
 
-        var output = ""
-        var completed: Bool?
+        nonisolated(unsafe) var output = ""
+        nonisolated(unsafe) var completed: Bool?
         installer.install(formula: "dosbox-staging", onOutput: { output += $0 }, onComplete: { completed = $0 })
 
         #expect(completed == true)
@@ -48,7 +48,7 @@ struct BrewInstallerTests {
         runner.asyncExitCode = 1
         let installer = BrewInstaller(runner: runner, brewPath: { "/opt/homebrew/bin/brew" })
 
-        var completed: Bool?
+        nonisolated(unsafe) var completed: Bool?
         installer.install(formula: "dosbox-staging", onOutput: { _ in }, onComplete: { completed = $0 })
 
         #expect(completed == false)
@@ -58,7 +58,7 @@ struct BrewInstallerTests {
         let runner = FakeProcessRunner()
         let installer = BrewInstaller(runner: runner, brewPath: { nil })
 
-        var completed: Bool?
+        nonisolated(unsafe) var completed: Bool?
         installer.install(formula: "dosbox-staging", onOutput: { _ in }, onComplete: { completed = $0 })
 
         #expect(completed == false)

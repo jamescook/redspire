@@ -33,9 +33,9 @@ enum Backend: String, CaseIterable, Identifiable {
     var executablePath: String? {
         switch self {
         case .staging:
-            return Backend.stagingCandidates.first { FileManager.default.isExecutableFile(atPath: $0) }
+            return ExecutableLocator.firstExecutable(in: Backend.stagingCandidates)
         case .x:
-            return FileManager.default.isExecutableFile(atPath: Backend.xCandidate) ? Backend.xCandidate : nil
+            return ExecutableLocator.firstExecutable(in: [Backend.xCandidate])
         }
     }
 
@@ -49,6 +49,6 @@ enum Backend: String, CaseIterable, Identifiable {
     }
 
     static var brewPath: String? {
-        brewCandidates.first { FileManager.default.isExecutableFile(atPath: $0) }
+        ExecutableLocator.firstExecutable(in: brewCandidates)
     }
 }

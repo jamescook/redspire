@@ -8,12 +8,12 @@ struct ContentView: View {
     @AppStorage("backend") private var backendRaw = Backend.staging.rawValue
     @AppStorage("memsizeMB") private var memsizeMB = 48
     @AppStorage("wizardCompleted") private var wizardCompleted = false
+    @Environment(\.openWindow) private var openWindow
 
     @StateObject private var session = GameSession()
     @State private var installer = BrewInstaller()
     @State private var isInstalling = false
     @State private var installLog = ""
-    @State private var showWizard = false
 
     private var backend: Backend {
         get { Backend(rawValue: backendRaw) ?? .staging }
@@ -45,7 +45,7 @@ struct ContentView: View {
                         .foregroundStyle(gameDirectoryPath.isEmpty ? .secondary : .primary)
                     Spacer()
                     Button("Choose…") { chooseFolder() }
-                    Button("Setup Wizard…") { showWizard = true }
+                    Button("Setup Wizard…") { openWindow(id: "onboarding-wizard") }
                 }
                 if let warning = versionWarning {
                     Label(warning, systemImage: "exclamationmark.triangle")
@@ -60,7 +60,7 @@ struct ContentView: View {
 
             GroupBox("CD Image (optional)") {
                 HStack {
-                    Text(cdImagePath.isEmpty ? "Auto-detect game.ins in game folder" : cdImagePath)
+                    Text(cdImagePath.isEmpty ? "Auto-detect in game folder (.ins/.cue/.iso)" : cdImagePath)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .foregroundStyle(.secondary)
@@ -108,13 +108,7 @@ struct ContentView: View {
                     }
 
                     if !installLog.isEmpty {
-                        ScrollView {
-                            Text(installLog)
-                                .font(.system(.caption, design: .monospaced))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                        .frame(height: 80)
-                        .background(Color.black.opacity(0.05))
+                        LogScrollView(text: installLog, height: 80)
                     }
 
                     Toggle("Fullscreen", isOn: $fullscreen)
@@ -152,13 +146,7 @@ struct ContentView: View {
         .padding(20)
         .frame(minWidth: 460, minHeight: 480)
         .onAppear {
-            if !wizardCompleted { showWizard = true }
-        }
-        .sheet(isPresented: $showWizard) {
-            OnboardingWizard(gameDirectoryPath: $gameDirectoryPath) {
-                wizardCompleted = true
-                showWizard = false
-            }
+            if !wizardCompleted { openWindow(id: "onboarding-wizard") }
         }
     }
 
