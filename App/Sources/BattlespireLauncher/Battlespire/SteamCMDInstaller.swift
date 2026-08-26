@@ -29,38 +29,18 @@ enum SteamCMDInstaller {
             .appendingPathComponent("Steam", isDirectory: true)
     }
 
-    /// Pure: the exact command to copy into Terminal.
-    ///
-    /// Forces the Windows platform type: Battlespire's Steam depot only ships
-    /// a Windows build (it's the same DOSBox-wrapped package GOG sells) --
-    /// steamcmd otherwise defaults to downloading a macOS-native depot for
-    /// the host OS, which doesn't exist for this title and fails with
-    /// "Invalid platform".
     static func command(username: String, destDir: String) -> String {
-        let trimmed = username.trimmingCharacters(in: .whitespaces)
-        let user = trimmed.isEmpty ? "<your_steam_username>" : trimmed
-        return "steamcmd +@sSteamCmdForcePlatformType windows +force_install_dir \"\(destDir)\" +login \(user) +app_update \(appID) validate +quit"
+        SteamCMDCommandBuilder.command(appID: appID, username: username, destDir: destDir)
     }
 
     /// Looks for GAME.EXE at `root` (defaults to installDestination), or one
     /// level down -- Steam's depot layout for this title isn't independently
     /// confirmed, so this doesn't assume it's flat the way GOG's installer is.
     /// `root` is injectable so this can be tested against a real temp
-    /// directory instead of ~/Library/Application Support.
+    /// directory instead of ~/Library/Application Support. Thin wrapper over
+    /// SteamCMDGameFinder (Shared/) -- see RedguardSteamCMDInstaller for the
+    /// other real consumer of that shared logic.
     static func findInstalledGameDir(root: URL = installDestination, fileManager: FileManager = .default) -> String? {
-        if fileManager.fileExists(atPath: root.appendingPathComponent("GAME.EXE").path) {
-            return root.path
-        }
-        guard let children = try? fileManager.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey]) else {
-            return nil
-        }
-        for child in children {
-            let isDir = (try? child.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
-            guard isDir else { continue }
-            if fileManager.fileExists(atPath: child.appendingPathComponent("GAME.EXE").path) {
-                return child.path
-            }
-        }
-        return nil
+        SteamCMDGameFinder.findInstalledGameDir(exeRelativePath: "GAME.EXE", root: root, fileManager: fileManager)
     }
 }

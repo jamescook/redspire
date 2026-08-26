@@ -11,37 +11,9 @@ enum WizardScreen: Hashable {
     case manualIssues
 }
 
-enum SteamInstallMethod: String, CaseIterable, Identifiable {
-    case steamApp
-    case runCommandMyself
-    case letAppDoIt
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .steamApp: return "Install it via the Steam app"
-        case .runCommandMyself: return "I'll run steamcmd myself"
-        case .letAppDoIt: return "Let this app run steamcmd for me"
-        }
-    }
-
-    var subtitle: String {
-        switch self {
-        case .steamApp: return "Normal install through Steam's own app, then we detect it"
-        case .runCommandMyself: return "We give you the exact command; you run it in Terminal"
-        case .letAppDoIt: return "Enter your Steam login here; it downloads automatically"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .steamApp: return "gamecontroller"
-        case .runCommandMyself: return "terminal"
-        case .letAppDoIt: return "bolt.fill"
-        }
-    }
-
+/// SteamInstallMethod itself lives in Shared/ (reused by Redguard's wizard
+/// too) -- this just maps a selection to Battlespire's own screen enum.
+extension SteamInstallMethod {
     var screen: WizardScreen {
         switch self {
         case .steamApp: return .steamViaApp

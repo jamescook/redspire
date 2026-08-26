@@ -3,15 +3,22 @@ import UniformTypeIdentifiers
 
 enum RedguardWizardScreen: Hashable {
     case chooseSource
+    case steamMethodChoice
+    case steamViaApp
+    case steamViaCommand
+    case steamViaAutomatic
     case gogGuide
     case discImage
 }
 
 /// Redguard's own setup wizard, mirroring OnboardingWizard's shape and
-/// visual style for consistency. GOG, the original disc(s), and "I already
-/// have it installed" are the real options -- Steam support
-/// (battlespire-macos-ao9.4) isn't built yet, so it's left out entirely
-/// rather than shown as a dead-end choice.
+/// visual style for consistency. Steam support (this file's Steam screens)
+/// is UNVERIFIED -- no Steam copy of this game was purchased to test
+/// against, unlike GOG/disc where real testing caught real bugs. AppID
+/// 1812410 and the installRoot/Redguard/ shape are confirmed via public
+/// anonymous steamcmd metadata (no purchase needed for that), but the
+/// actual depot contents (does it need the same DIG.INI/GLIDE2X.OVL
+/// fixups GOG's package didn't?) are not.
 struct RedguardOnboardingWizard: View {
     @AppStorage("redguardGameDirectoryPath") private var gameDirectoryPath = ""
     @AppStorage("redguardCdImagePath") private var cdImagePath = ""
@@ -21,13 +28,34 @@ struct RedguardOnboardingWizard: View {
     @State private var screen: RedguardWizardScreen = .chooseSource
     @State private var manualErrorMessage: String?
     @State private var playDiscPath = ""
+    @State private var selectedSteamMethod: SteamInstallMethod?
+    @State private var detectedSteamPath: String?
+    @State private var steamRedetectAttempted = false
+    @State private var steamUsername = ""
+    @State private var steamPassword = ""
+    @State private var steamGuardCode = ""
+    @State private var rememberPassword = false
+    @State private var commandCopied = false
+    @State private var savedAccounts: [String] = []
+    @State private var selectedSavedAccount: String?
+    @State private var savedPasswordUnavailable = false
+    private let credentialStore: CredentialStore = KeychainCredentialStore()
     @StateObject private var gogInstaller = RedguardGogInstaller()
     @StateObject private var discInstaller = RedguardDiscImageInstaller()
+    @StateObject private var steamCMDSession = SteamCMDSession(
+        appID: RedguardSteamCMDInstaller.appID,
+        exeLabel: "REDGUARD.EXE",
+        findInstalledGameDir: { RedguardSteamCMDInstaller.findInstalledGameDir(root: $0) }
+    )
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             switch screen {
             case .chooseSource: chooseSourceView
+            case .steamMethodChoice: steamMethodChoiceView
+            case .steamViaApp: steamViaAppView
+            case .steamViaCommand: steamViaCommandView
+            case .steamViaAutomatic: steamViaAutomaticView
             case .gogGuide: gogGuideView
             case .discImage: discImageView
             }
@@ -40,8 +68,16 @@ struct RedguardOnboardingWizard: View {
             screen = .chooseSource
             manualErrorMessage = nil
             playDiscPath = ""
+            selectedSteamMethod = nil
+            steamRedetectAttempted = false
             gogInstaller.reset()
             discInstaller.reset()
+            steamCMDSession.reset()
+            detectedSteamPath = RedguardSteamDetector.findGameDirectory()
+            savedAccounts = credentialStore.listAccounts()
+        }
+        .onChange(of: steamCMDSession.stage) {
+            savedAccounts = credentialStore.listAccounts()
         }
     }
 
@@ -59,9 +95,34 @@ struct RedguardOnboardingWizard: View {
             Text("Let's find your copy of the game.")
                 .foregroundStyle(.secondary)
 
-            Text("How do you have the game?")
+            if let detected = detectedSteamPath {
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Found an existing Steam install", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text(detected)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Button("Use This Copy") {
+                            gameDirectoryPath = detected
+                            complete()
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
+            Text(detectedSteamPath == nil ? "How do you have the game?" : "Or set it up a different way:")
                 .font(.headline)
                 .padding(.top, 4)
+
+            sourceCard(
+                title: "Steam",
+                subtitle: "I own it on Steam",
+                systemImage: "gamecontroller"
+            ) { manualErrorMessage = nil; steamCMDSession.reset(); screen = .steamMethodChoice }
 
             sourceCard(
                 title: "GOG",
@@ -128,6 +189,309 @@ struct RedguardOnboardingWizard: View {
 
         gameDirectoryPath = url.path
         complete()
+    }
+
+    // MARK: - Steam: method choice
+
+    private var steamMethodChoiceView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            backButton
+            Text("How do you want to install it?").font(.title2).bold()
+            Label("Redguard doesn't appear to be installed via Steam yet.", systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(SteamInstallMethod.allCases) { method in
+                    methodChoiceCard(method)
+                }
+            }
+
+            if let selected = selectedSteamMethod {
+                Button("Continue") {
+                    switch selected {
+                    case .steamApp: screen = .steamViaApp
+                    case .runCommandMyself: screen = .steamViaCommand
+                    case .letAppDoIt: screen = .steamViaAutomatic
+                    }
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+    }
+
+    private func methodChoiceCard(_ method: SteamInstallMethod) -> some View {
+        let isSelected = selectedSteamMethod == method
+        return Button {
+            selectedSteamMethod = method
+        } label: {
+            HStack {
+                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                    .foregroundStyle(isSelected ? .blue : .secondary)
+                    .font(.title3)
+                Image(systemName: method.icon)
+                    .frame(width: 24)
+                VStack(alignment: .leading) {
+                    Text(method.title).bold()
+                    Text(method.subtitle).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding(10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(isSelected ? Color.blue.opacity(0.1) : Color.gray.opacity(0.08))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
+        )
+        .cornerRadius(8)
+    }
+
+    // MARK: - Steam: via the Steam app
+
+    private var steamViaAppView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            backButton(to: .steamMethodChoice)
+            Text("Install via the Steam App").font(.title2).bold()
+            Text("Install it normally through the Steam app -- Redguard's AppID is 1812410.")
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Open Steam Store Page") {
+                NSWorkspace.shared.open(URL(string: "https://store.steampowered.com/app/1812410")!)
+            }
+
+            Divider()
+
+            manualDetectFooter
+        }
+    }
+
+    // MARK: - Steam: run steamcmd myself
+
+    private var steamViaCommandView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            backButton(to: .steamMethodChoice)
+            HStack(spacing: 4) {
+                Text("Run steamcmd Yourself").font(.title2).bold()
+                steamCMDTooltip
+            }
+
+            if !SteamCMDTool.isInstalled {
+                MissingHomebrewToolView(
+                    toolName: "steamcmd",
+                    reason: "it can download the game files directly, without installing the full Steam client",
+                    formula: "steamcmd"
+                )
+            } else {
+                Text("Enter your Steam username, then copy this command and run it in Terminal -- it'll prompt you for your password and Steam Guard code there.")
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                TextField("Steam username", text: $steamUsername)
+                    .textFieldStyle(.roundedBorder)
+                    .textContentType(.username)
+                    .frame(maxWidth: 240)
+                Text(RedguardSteamCMDInstaller.command(username: steamUsername, destDir: RedguardSteamCMDInstaller.installDestination.path))
+                    .font(.system(.caption2, design: .monospaced))
+                    .padding(8)
+                    .background(Color.gray.opacity(0.15))
+                    .cornerRadius(4)
+                    .textSelection(.enabled)
+                HStack {
+                    Button(commandCopied ? "Copied!" : "Copy Command") {
+                        let pb = NSPasteboard.general
+                        pb.clearContents()
+                        pb.setString(RedguardSteamCMDInstaller.command(username: steamUsername, destDir: RedguardSteamCMDInstaller.installDestination.path), forType: .string)
+                        commandCopied = true
+                    }
+                    Button("Open Terminal") { openTerminal() }
+                }
+            }
+
+            Divider()
+
+            manualDetectFooter
+        }
+    }
+
+    // MARK: - Steam: let the app do it
+
+    private var steamViaAutomaticView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if !steamCMDSession.isRunning {
+                backButton(to: .steamMethodChoice)
+            }
+            HStack(spacing: 4) {
+                Text("Automatic Install").font(.title2).bold()
+                steamCMDTooltip
+            }
+
+            if !SteamCMDTool.isInstalled {
+                MissingHomebrewToolView(
+                    toolName: "steamcmd",
+                    reason: "it can download the game files directly, without installing the full Steam client",
+                    formula: "steamcmd"
+                )
+            } else if steamCMDSession.stage != nil {
+                steamCMDSessionView
+            } else {
+                if !savedAccounts.isEmpty {
+                    savedAccountPicker
+                }
+                if selectedSavedAccount == nil {
+                    TextField("Steam username", text: $steamUsername)
+                        .textFieldStyle(.roundedBorder)
+                        .textContentType(.username)
+                        .frame(maxWidth: 240)
+                }
+
+                if selectedSavedAccount != nil {
+                    Label("Using the saved password for this account.", systemImage: "checkmark.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Password and Steam Guard code stay local to this steamcmd process.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    NativeSecureField(placeholder: "Steam password", text: $steamPassword)
+                        .frame(maxWidth: 200, maxHeight: 22)
+                    Toggle("Remember this password in Keychain", isOn: $rememberPassword)
+                        .font(.caption)
+                }
+                Button("Run for Me") {
+                    steamCMDSession.start(
+                        username: steamUsername,
+                        password: steamPassword,
+                        destDir: RedguardSteamCMDInstaller.installDestination.path,
+                        rememberPassword: rememberPassword
+                    )
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(steamUsername.trimmingCharacters(in: .whitespaces).isEmpty || steamPassword.isEmpty)
+            }
+        }
+    }
+
+    private var steamCMDTooltip: InfoTooltip {
+        InfoTooltip(
+            text: "steamcmd is Valve's official command-line tool for downloading Steam games without the full Steam app — handy for headless/automated installs.",
+            linkURL: URL(string: "https://developer.valvesoftware.com/wiki/SteamCMD")!
+        )
+    }
+
+    private var manualDetectFooter: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button("I've Installed It — Detect Again") {
+                steamRedetectAttempted = true
+                if let found = RedguardSteamDetector.findGameDirectory() ?? RedguardSteamCMDInstaller.findInstalledGameDir() {
+                    gameDirectoryPath = found
+                    complete()
+                }
+            }
+            .keyboardShortcut(.defaultAction)
+
+            if steamRedetectAttempted && RedguardSteamDetector.findGameDirectory() == nil && RedguardSteamCMDInstaller.findInstalledGameDir() == nil {
+                Label("Still not found. Make sure the install finished, then try again.", systemImage: "exclamationmark.triangle")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+
+    private var savedAccountPicker: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Picker("Saved account", selection: $selectedSavedAccount) {
+                Text("Use a different account").tag(String?.none)
+                ForEach(savedAccounts, id: \.self) { account in
+                    Text(account).tag(String?.some(account))
+                }
+            }
+            .frame(maxWidth: 280)
+            .onChange(of: selectedSavedAccount) { _, newValue in
+                guard let account = newValue else {
+                    steamUsername = ""
+                    steamPassword = ""
+                    return
+                }
+                steamUsername = account
+                if let saved = credentialStore.password(for: account) {
+                    steamPassword = saved
+                } else {
+                    // Deleted from Keychain outside the app, access denied, etc.
+                    // Fall back to manual entry rather than a silently-stuck button.
+                    savedPasswordUnavailable = true
+                    selectedSavedAccount = nil
+                    steamPassword = ""
+                }
+            }
+
+            if savedPasswordUnavailable {
+                Label("Saved password unavailable — enter it again below.", systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+
+            if let account = selectedSavedAccount {
+                Button("Forget This Account", role: .destructive) {
+                    credentialStore.delete(account: account)
+                    savedAccounts.removeAll { $0 == account }
+                    selectedSavedAccount = nil
+                    steamUsername = ""
+                    steamPassword = ""
+                }
+                .font(.caption)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var steamCMDSessionView: some View {
+        switch steamCMDSession.stage {
+        case .running:
+            HStack {
+                ProgressView().controlSize(.small)
+                Text("Running steamcmd…")
+            }
+            if steamCMDSession.log.localizedCaseInsensitiveContains("confirm the login in the Steam Mobile app") {
+                Label("Check your phone — approve this sign-in in the Steam Mobile app.", systemImage: "iphone")
+                    .foregroundStyle(.blue)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            LogScrollView(text: steamCMDSession.log)
+            HStack {
+                TextField("Steam Guard code (if asked)", text: $steamGuardCode)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 220)
+                Button("Send") {
+                    steamCMDSession.send(steamGuardCode)
+                    steamGuardCode = ""
+                }
+                .disabled(steamGuardCode.isEmpty)
+            }
+            Button("Cancel") { steamCMDSession.cancel() }
+        case .failed(let reason):
+            Label(reason, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.red)
+                .fixedSize(horizontal: false, vertical: true)
+            LogScrollView(text: steamCMDSession.log)
+            Button("Try Again") { steamCMDSession.reset() }
+        case .done(let dir):
+            installerOptionCard(icon: "checkmark.circle.fill", color: .green, text: "Downloaded successfully via steamcmd.")
+            Button("Continue") {
+                gameDirectoryPath = dir
+                complete()
+            }
+            .keyboardShortcut(.defaultAction)
+        case .none:
+            EmptyView()
+        }
+    }
+
+    private func openTerminal() {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
     }
 
     // MARK: - Install via GOG
@@ -396,9 +760,11 @@ struct RedguardOnboardingWizard: View {
         }
     }
 
-    private var backButton: some View {
+    private var backButton: some View { backButton(to: .chooseSource) }
+
+    private func backButton(to target: RedguardWizardScreen) -> some View {
         Button {
-            screen = .chooseSource
+            screen = target
         } label: {
             Label("Back", systemImage: "chevron.left")
         }

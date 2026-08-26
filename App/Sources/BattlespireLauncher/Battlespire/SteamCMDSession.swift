@@ -20,6 +20,9 @@ final class SteamCMDSession: ObservableObject {
     private let runner: InteractiveProcessRunning
     private let steamCMDPath: () -> String?
     private let credentialStore: CredentialStore
+    private let appID: String
+    private let exeLabel: String
+    private let findInstalledGameDir: (URL) -> String?
     private nonisolated(unsafe) var handle: InteractiveProcessHandle?
 
     private var pendingUsername = ""
@@ -27,23 +30,35 @@ final class SteamCMDSession: ObservableObject {
     private var pendingRememberPassword = false
     private var passwordSent = false
 
+    /// `appID`/`findInstalledGameDir` default to Battlespire's own values so
+    /// every existing call site is unaffected -- RedguardOnboardingWizard
+    /// constructs this with Redguard's own AppID and exe-check instead of
+    /// duplicating this whole session type.
     init(
         runner: InteractiveProcessRunning = SystemInteractiveProcessRunner(),
         steamCMDPath: @escaping () -> String? = { SteamCMDTool.executablePath },
-        credentialStore: CredentialStore = KeychainCredentialStore()
+        credentialStore: CredentialStore = KeychainCredentialStore(),
+        appID: String = SteamCMDInstaller.appID,
+        exeLabel: String = "GAME.EXE",
+        findInstalledGameDir: @escaping (URL) -> String? = { SteamCMDInstaller.findInstalledGameDir(root: $0) }
     ) {
         self.runner = runner
         self.steamCMDPath = steamCMDPath
         self.credentialStore = credentialStore
+        self.appID = appID
+        self.exeLabel = exeLabel
+        self.findInstalledGameDir = findInstalledGameDir
     }
 
     /// Pure mapping from the process outcome to the resulting UI stage.
-    nonisolated static func resolveStage(exitCode: Int32, foundGameDir: String?) -> SteamCMDStage {
+    /// `exeLabel` names whichever file's absence means the install didn't
+    /// really finish -- GAME.EXE for Battlespire, REDGUARD.EXE for Redguard.
+    nonisolated static func resolveStage(exitCode: Int32, foundGameDir: String?, exeLabel: String = "GAME.EXE") -> SteamCMDStage {
         guard exitCode == 0 else {
             return .failed("steamcmd exited with status \(exitCode). See log above.")
         }
         guard let foundGameDir else {
-            return .failed("steamcmd finished, but GAME.EXE wasn't found in the install folder. See log above.")
+            return .failed("steamcmd finished, but \(exeLabel) wasn't found in the install folder. See log above.")
         }
         return .done(gameDir: foundGameDir)
     }
@@ -95,7 +110,7 @@ final class SteamCMDSession: ObservableObject {
             "+@sSteamCmdForcePlatformType", "windows",
             "+force_install_dir", destDir,
             "+login", user,
-            "+app_update", SteamCMDInstaller.appID, "validate",
+            "+app_update", appID, "validate",
             "+quit",
         ]
 
@@ -145,8 +160,8 @@ final class SteamCMDSession: ObservableObject {
     private func finish(exitCode: Int32, destDir: String) {
         isRunning = false
         handle = nil
-        let found = SteamCMDInstaller.findInstalledGameDir(root: URL(fileURLWithPath: destDir))
-        let resolved = Self.resolveStage(exitCode: exitCode, foundGameDir: found)
+        let found = findInstalledGameDir(URL(fileURLWithPath: destDir))
+        let resolved = Self.resolveStage(exitCode: exitCode, foundGameDir: found, exeLabel: exeLabel)
 
         if Self.shouldSavePassword(stage: resolved, rememberPassword: pendingRememberPassword) {
             credentialStore.save(password: pendingPassword, for: pendingUsername)

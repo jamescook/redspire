@@ -10,7 +10,18 @@ struct SteamCMDSessionLogicTests {
 
     @Test func zeroExitButNoGameDirFails() {
         let stage = SteamCMDSession.resolveStage(exitCode: 0, foundGameDir: nil)
-        guard case .failed = stage else { Issue.record("expected .failed"); return }
+        guard case .failed(let reason) = stage else { Issue.record("expected .failed"); return }
+        #expect(reason.contains("GAME.EXE"))
+    }
+
+    /// Regression coverage: RedguardOnboardingWizard constructs this same
+    /// session type with exeLabel: "REDGUARD.EXE" instead of duplicating
+    /// the whole class -- the failure message must reflect that.
+    @Test func exeLabelIsCustomizableForOtherGames() {
+        let stage = SteamCMDSession.resolveStage(exitCode: 0, foundGameDir: nil, exeLabel: "REDGUARD.EXE")
+        guard case .failed(let reason) = stage else { Issue.record("expected .failed"); return }
+        #expect(reason.contains("REDGUARD.EXE"))
+        #expect(!reason.contains("GAME.EXE"))
     }
 
     @Test func zeroExitWithGameDirSucceeds() {
