@@ -43,11 +43,28 @@ struct RootView: View {
         }
     }
 
+    /// Loads the mode's bundled icon file (see assets/icons/ATTRIBUTION.md),
+    /// falling back to the SF Symbol if the resource is missing for any
+    /// reason -- keeps the picker showing *something* rather than a blank
+    /// segment if a resource fails to bundle correctly.
+    private static func modeIcon(for mode: GameMode) -> Image {
+        guard let url = BundledResource.url(named: mode.iconFileName),
+              let nsImage = NSImage(contentsOf: url) else {
+            return Image(systemName: mode.systemImage)
+        }
+        return Image(nsImage: nsImage)
+    }
+
     private var modePicker: some View {
         HStack(spacing: 6) {
             Picker("Game", selection: $mode) {
                 ForEach(GameMode.allCases) { m in
-                    Label(m.displayName, systemImage: m.systemImage).tag(m)
+                    Label {
+                        Text(m.displayName)
+                    } icon: {
+                        Self.modeIcon(for: m)
+                    }
+                    .tag(m)
                 }
             }
             .pickerStyle(.segmented)

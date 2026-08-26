@@ -16,12 +16,21 @@ enum GameMode: String, CaseIterable, Identifiable {
         }
     }
 
-    // Placeholder SF Symbols -- real per-game icons are tracked separately
-    // (battlespire-macos-ao9.5).
+    /// SF Symbol fallback if the bundled icon file can't be loaded for any
+    /// reason (see RootView.modeIcon).
     var systemImage: String {
         switch self {
         case .battlespire: "sparkles"
         case .redguard: "sun.max.fill"
+        }
+    }
+
+    /// Bundled public-domain icon filename (see assets/icons/ATTRIBUTION.md
+    /// for source/license of each).
+    var iconFileName: String {
+        switch self {
+        case .battlespire: "battlespire-sword.svg"
+        case .redguard: "redguard-scimitar.svg"
         }
     }
 }

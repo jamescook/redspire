@@ -15,6 +15,8 @@ let package = Package(
                 .copy("Redguard/Resources/REDGUARD_DIG.INI"),
                 .copy("Redguard/Resources/REDGUARD_MDI.INI"),
                 .copy("Redguard/Resources/redguard.conf"),
+                .copy("Shared/Resources/Icons/battlespire-sword.svg"),
+                .copy("Shared/Resources/Icons/redguard-scimitar.svg"),
             ]
         ),
         .testTarget(

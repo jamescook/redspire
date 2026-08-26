@@ -5,7 +5,8 @@ App/.build/
 App/dist/
 
 # Not stored in git for now (large binary, undecided hosting approach)
-assets/
+assets/*
+!assets/icons/
 
 # Local build/notarization config (signing identity, API keys) -- never committed
 App/.env
