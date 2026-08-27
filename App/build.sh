@@ -15,6 +15,13 @@
 #                        your keychain (errors out if there's none or more
 #                        than one -- set this explicitly in that case).
 #   APP_NAME             Defaults to "Redspire".
+#   ARCH                 "arm64" or "x86_64". Defaults to the host's own
+#                        architecture. The Swift toolchain cross-compiles the
+#                        other one directly (no Rosetta needed to build it,
+#                        just to run codesign/notarytool, which are already
+#                        universal binaries). Non-native builds land in
+#                        dist/$APP_NAME-$ARCH.app / .zip so both architectures'
+#                        outputs can coexist.
 #
 # Notarization needs Apple credentials, via ONE of two methods:
 #
@@ -42,6 +49,14 @@ fi
 
 APP_NAME="${APP_NAME:-Redspire}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-battlespire-notary}"
+NATIVE_ARCH="$(uname -m)"
+ARCH="${ARCH:-$NATIVE_ARCH}"
+case "$ARCH" in
+  arm64|x86_64) ;;
+  *) echo "error: ARCH must be 'arm64' or 'x86_64', got '$ARCH'." >&2; exit 1 ;;
+esac
+DIST_SUFFIX=""
+[ "$ARCH" = "$NATIVE_ARCH" ] || DIST_SUFFIX="-$ARCH"
 
 if [ -z "${CODESIGN_IDENTITY:-}" ]; then
   MATCHES=$(security find-identity -v -p codesigning | grep -o '"Developer ID Application:[^"]*"' | tr -d '"' || true)
@@ -61,15 +76,21 @@ if [ "${1:-}" = "--notarize" ]; then
   DO_NOTARIZE=1
 fi
 
-echo "==> Building (release)"
-swift build -c release
+echo "==> Building (release, $ARCH)"
+# --arch is passed even for the host's own architecture (not just the
+# cross-compiled one) so BUILD_DIR below is always unambiguous -- SwiftPM's
+# .build/release symlink points at whichever arch-specific dir was built
+# most recently, so relying on it directly here would silently pick up a
+# stale build after building the other architecture.
+swift build -c release --arch "$ARCH"
+BUILD_DIR=".build/${ARCH}-apple-macosx/release"
 
 DIST="dist"
-APP="$DIST/$APP_NAME.app"
+APP="$DIST/$APP_NAME$DIST_SUFFIX.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-cp ".build/release/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
+cp "$BUILD_DIR/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
 cp Info.plist "$APP/Contents/Info.plist"
 
 # SPM's generated resource bundle is an informal folder shape (no Info.plist)
@@ -77,7 +98,7 @@ cp Info.plist "$APP/Contents/Info.plist"
 # that, just copy the actual resource file(s) into the conventional
 # Contents/Resources/ location; see DiscImageInstaller's lookup for the
 # matching read side.
-RESOURCE_BUNDLE=".build/release/${APP_NAME}_${APP_NAME}.bundle"
+RESOURCE_BUNDLE="$BUILD_DIR/${APP_NAME}_${APP_NAME}.bundle"
 if [ -d "$RESOURCE_BUNDLE" ]; then
   cp -R "$RESOURCE_BUNDLE"/. "$APP/Contents/Resources/"
 fi
@@ -148,7 +169,7 @@ else
   exit 1
 fi
 
-ZIP="$DIST/$APP_NAME.zip"
+ZIP="$DIST/$APP_NAME$DIST_SUFFIX.zip"
 echo "==> Zipping for notarization"
 rm -f "$ZIP"
 ditto -c -k --keepParent "$APP" "$ZIP"
