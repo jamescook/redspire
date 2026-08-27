@@ -12,9 +12,9 @@ enum GameVersion {
 
         func flush() {
             guard found == nil, run.count >= 4 else { run.removeAll(); return }
-            if let s = String(bytes: run, encoding: .ascii) {
-                if let range = s.range(of: "battlespire v", options: .caseInsensitive) {
-                    found = String(s[range.lowerBound...]).trimmingCharacters(in: .whitespaces)
+            if let text = String(bytes: run, encoding: .ascii) {
+                if let range = text.range(of: "battlespire v", options: .caseInsensitive) {
+                    found = String(text[range.lowerBound...]).trimmingCharacters(in: .whitespaces)
                 }
             }
             run.removeAll()
@@ -38,7 +38,7 @@ enum GameVersion {
     }
 
     static func isV15(_ versionString: String?) -> Bool {
-        guard let v = versionString else { return false }
-        return v.uppercased().contains("V1.5")
+        guard let version = versionString else { return false }
+        return version.uppercased().contains("V1.5")
     }
 }

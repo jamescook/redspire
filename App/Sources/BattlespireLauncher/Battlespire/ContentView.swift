@@ -29,8 +29,8 @@ struct ContentView: View {
     private var versionWarning: String? {
         guard !gameDirectoryPath.isEmpty else { return nil }
         let exe = (gameDirectoryPath as NSString).appendingPathComponent("GAME.EXE")
-        guard let v = GameVersion.detect(gameExePath: exe) else { return nil }
-        return GameVersion.isV15(v) ? nil : "Detected \(v) — v1.3 is known-broken under DOSBox. See README for the v1.5 patch."
+        guard let version = GameVersion.detect(gameExePath: exe) else { return nil }
+        return GameVersion.isV15(version) ? nil : "Detected \(version) — v1.3 is known-broken under DOSBox. See README for the v1.5 patch."
     }
 
     private var verifiedBuildBadge: Bool {
@@ -100,8 +100,8 @@ struct ContentView: View {
                         InfoTooltip(text: "dosbox-staging: actively maintained and correctly detects this game's video mode — recommended. dosbox-x: an alternative build with more emulation options; try it if staging doesn't work for you.")
                     }
                     Picker("Backend", selection: $backendRaw) {
-                        ForEach(Backend.allCases) { b in
-                            Text(b.displayName).tag(b.rawValue)
+                        ForEach(Backend.allCases) { candidate in
+                            Text(candidate.displayName).tag(candidate.rawValue)
                         }
                     }
                     .pickerStyle(.segmented)

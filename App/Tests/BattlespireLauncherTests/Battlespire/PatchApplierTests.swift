@@ -11,18 +11,18 @@ struct PatchApplierTests {
             try? FileManager.default.removeItem(at: gameDir)
         }
 
-        FileManager.default.createFile(atPath: patchDir.appendingPathComponent("GAME.EXE").path, contents: Data("v1.5".utf8))
-        FileManager.default.createFile(atPath: gameDir.appendingPathComponent("GAME.EXE").path, contents: Data("v1.3".utf8))
+        write("v1.5", to: patchDir.appendingPathComponent("GAME.EXE"))
+        write("v1.3", to: gameDir.appendingPathComponent("GAME.EXE"))
 
-        try FileManager.default.createDirectory(at: patchDir.appendingPathComponent("GAMEDATA"), withIntermediateDirectories: true)
-        FileManager.default.createFile(atPath: patchDir.appendingPathComponent("GAMEDATA/LEVEL1.DAT").path, contents: Data("new".utf8))
-        try FileManager.default.createDirectory(at: gameDir.appendingPathComponent("GAMEDATA"), withIntermediateDirectories: true)
-        FileManager.default.createFile(atPath: gameDir.appendingPathComponent("GAMEDATA/LEVEL1.DAT").path, contents: Data("old".utf8))
+        try makeDir(patchDir.appendingPathComponent("GAMEDATA"))
+        write("new", to: patchDir.appendingPathComponent("GAMEDATA/LEVEL1.DAT"))
+        try makeDir(gameDir.appendingPathComponent("GAMEDATA"))
+        write("old", to: gameDir.appendingPathComponent("GAMEDATA/LEVEL1.DAT"))
 
         try PatchApplier.apply(patchDir: patchDir.path, toGameDir: gameDir.path)
 
-        #expect(FileManager.default.contents(atPath: gameDir.appendingPathComponent("GAME.EXE").path) == Data("v1.5".utf8))
-        #expect(FileManager.default.contents(atPath: gameDir.appendingPathComponent("GAMEDATA/LEVEL1.DAT").path) == Data("new".utf8))
+        #expect(contents(of: gameDir.appendingPathComponent("GAME.EXE")) == Data("v1.5".utf8))
+        #expect(contents(of: gameDir.appendingPathComponent("GAMEDATA/LEVEL1.DAT")) == Data("new".utf8))
     }
 
     @Test func matchesLowercaseFilenamesLikeTheRealOfficialPatch() throws {
@@ -36,17 +36,17 @@ struct PatchApplierTests {
             try? FileManager.default.removeItem(at: gameDir)
         }
 
-        FileManager.default.createFile(atPath: patchDir.appendingPathComponent("game.exe").path, contents: Data("v1.5".utf8))
-        FileManager.default.createFile(atPath: gameDir.appendingPathComponent("GAME.EXE").path, contents: Data("v1.3".utf8))
+        write("v1.5", to: patchDir.appendingPathComponent("game.exe"))
+        write("v1.3", to: gameDir.appendingPathComponent("GAME.EXE"))
 
-        try FileManager.default.createDirectory(at: patchDir.appendingPathComponent("gamedata"), withIntermediateDirectories: true)
-        FileManager.default.createFile(atPath: patchDir.appendingPathComponent("gamedata/xbow.3d").path, contents: Data("new".utf8))
-        try FileManager.default.createDirectory(at: gameDir.appendingPathComponent("GAMEDATA"), withIntermediateDirectories: true)
+        try makeDir(patchDir.appendingPathComponent("gamedata"))
+        write("new", to: patchDir.appendingPathComponent("gamedata/xbow.3d"))
+        try makeDir(gameDir.appendingPathComponent("GAMEDATA"))
 
         try PatchApplier.apply(patchDir: patchDir.path, toGameDir: gameDir.path)
 
-        #expect(FileManager.default.contents(atPath: gameDir.appendingPathComponent("GAME.EXE").path) == Data("v1.5".utf8))
-        #expect(FileManager.default.contents(atPath: gameDir.appendingPathComponent("GAMEDATA/xbow.3d").path) == Data("new".utf8))
+        #expect(contents(of: gameDir.appendingPathComponent("GAME.EXE")) == Data("v1.5".utf8))
+        #expect(contents(of: gameDir.appendingPathComponent("GAMEDATA/xbow.3d")) == Data("new".utf8))
     }
 
     @Test func throwsWhenPatchExeMissing() throws {
@@ -69,13 +69,13 @@ struct PatchApplierTests {
             try? FileManager.default.removeItem(at: patchDir)
             try? FileManager.default.removeItem(at: gameDir)
         }
-        FileManager.default.createFile(atPath: patchDir.appendingPathComponent("GAME.EXE").path, contents: Data("v1.5".utf8))
-        FileManager.default.createFile(atPath: gameDir.appendingPathComponent("GAME.EXE").path, contents: Data("v1.3".utf8))
+        write("v1.5", to: patchDir.appendingPathComponent("GAME.EXE"))
+        write("v1.3", to: gameDir.appendingPathComponent("GAME.EXE"))
 
         let runner = FakeProcessRunner() // never touched: it's a folder, not a zip
         try PatchApplier.applyFromZipOrFolder(path: patchDir.path, toGameDir: gameDir.path, runner: runner)
 
-        #expect(FileManager.default.contents(atPath: gameDir.appendingPathComponent("GAME.EXE").path) == Data("v1.5".utf8))
+        #expect(contents(of: gameDir.appendingPathComponent("GAME.EXE")) == Data("v1.5".utf8))
         #expect(runner.syncCalls.isEmpty)
     }
 
@@ -88,8 +88,8 @@ struct PatchApplierTests {
         }
         let nested = topLevel.appendingPathComponent("batpat15")
         try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
-        FileManager.default.createFile(atPath: nested.appendingPathComponent("GAME.EXE").path, contents: Data("v1.5".utf8))
-        FileManager.default.createFile(atPath: gameDir.appendingPathComponent("GAME.EXE").path, contents: Data("v1.3".utf8))
+        write("v1.5", to: nested.appendingPathComponent("GAME.EXE"))
+        write("v1.3", to: gameDir.appendingPathComponent("GAME.EXE"))
 
         // Picking the top-level folder (not the nested batpat15/ folder
         // itself) is exactly the reported bug: it used to fail with
@@ -97,7 +97,7 @@ struct PatchApplierTests {
         // level down.
         try PatchApplier.applyFromZipOrFolder(path: topLevel.path, toGameDir: gameDir.path, runner: FakeProcessRunner())
 
-        #expect(FileManager.default.contents(atPath: gameDir.appendingPathComponent("GAME.EXE").path) == Data("v1.5".utf8))
+        #expect(contents(of: gameDir.appendingPathComponent("GAME.EXE")) == Data("v1.5".utf8))
     }
 
     @Test func surfacesUnzipFailure() throws {
@@ -118,5 +118,17 @@ struct PatchApplierTests {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
+    }
+
+    private func write(_ string: String, to url: URL) {
+        FileManager.default.createFile(atPath: url.path, contents: Data(string.utf8))
+    }
+
+    private func makeDir(_ url: URL) throws {
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    }
+
+    private func contents(of url: URL) -> Data? {
+        FileManager.default.contents(atPath: url.path)
     }
 }

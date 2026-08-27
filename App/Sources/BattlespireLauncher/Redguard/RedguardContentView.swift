@@ -84,8 +84,8 @@ struct RedguardContentView: View {
             GroupBox("DOSBox") {
                 VStack(alignment: .leading, spacing: 8) {
                     Picker("Backend", selection: $backendRaw) {
-                        ForEach(Backend.allCases) { b in
-                            Text(b.displayName).tag(b.rawValue)
+                        ForEach(Backend.allCases) { candidate in
+                            Text(candidate.displayName).tag(candidate.rawValue)
                         }
                     }
                     .pickerStyle(.segmented)

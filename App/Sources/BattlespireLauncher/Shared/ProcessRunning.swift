@@ -69,15 +69,15 @@ final class SystemProcessRunner: ProcessRunning {
         pipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             if data.isEmpty { return }
-            if let s = String(data: data, encoding: .utf8) {
-                onOutput(s)
+            if let text = String(data: data, encoding: .utf8) {
+                onOutput(text)
             }
         }
 
-        proc.terminationHandler = { p in
+        proc.terminationHandler = { process in
             pipe.fileHandleForReading.readabilityHandler = nil
-            ProcessRegistry.shared.unregister(p)
-            onExit(p.terminationStatus)
+            ProcessRegistry.shared.unregister(process)
+            onExit(process.terminationStatus)
         }
 
         do {

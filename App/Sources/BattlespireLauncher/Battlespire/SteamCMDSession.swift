@@ -117,10 +117,10 @@ final class SteamCMDSession: ObservableObject {
         handle = runner.start(
             executable: exe,
             arguments: args,
-            onOutput: { [weak self] s in
+            onOutput: { [weak self] chunk in
                 Task { @MainActor in
                     guard let self else { return }
-                    self.log += s
+                    self.log += chunk
                     if Self.shouldSendPassword(log: self.log, alreadySent: self.passwordSent) {
                         self.passwordSent = true
                         self.handle?.sendLine(password)

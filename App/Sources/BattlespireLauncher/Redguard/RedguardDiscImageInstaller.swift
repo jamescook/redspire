@@ -121,8 +121,8 @@ final class RedguardDiscImageInstaller: ObservableObject {
         handle = runner.runAsync(
             executable: unshieldExe,
             arguments: ["x", "-d", dest.path, cabPath],
-            onOutput: { [weak self] s in
-                Task { @MainActor in self?.log += s }
+            onOutput: { [weak self] chunk in
+                Task { @MainActor in self?.log += chunk }
             },
             onExit: { [weak self] exitCode in
                 Task { @MainActor in
@@ -177,20 +177,20 @@ final class RedguardDiscImageInstaller: ObservableObject {
     }
 
     private func mergeExtractedFiles(commonFiles: URL, fxart: URL, mountPoint: String, into redguardDir: URL) throws {
-        let fm = FileManager.default
-        try? fm.removeItem(at: redguardDir)
-        try fm.createDirectory(at: redguardDir, withIntermediateDirectories: true)
-        for item in try fm.contentsOfDirectory(atPath: commonFiles.path) {
-            try? fm.copyItem(atPath: commonFiles.appendingPathComponent(item).path, toPath: redguardDir.appendingPathComponent(item).path)
+        let fileManager = FileManager.default
+        try? fileManager.removeItem(at: redguardDir)
+        try fileManager.createDirectory(at: redguardDir, withIntermediateDirectories: true)
+        for item in try fileManager.contentsOfDirectory(atPath: commonFiles.path) {
+            try? fileManager.copyItem(atPath: commonFiles.appendingPathComponent(item).path, toPath: redguardDir.appendingPathComponent(item).path)
         }
-        if fm.fileExists(atPath: fxart.path) {
-            try? fm.copyItem(at: fxart, to: redguardDir.appendingPathComponent("fxart"))
+        if fileManager.fileExists(atPath: fxart.path) {
+            try? fileManager.copyItem(at: fxart, to: redguardDir.appendingPathComponent("fxart"))
         }
         // RGFX.EXE (the Glide-accelerated renderer this app actually
         // launches) lives at the disc root, not inside DATA1.CAB -- unshield
         // never sees it. Confirmed byte-identical to GOG's own copy of it.
-        if let rgfxName = CaseInsensitiveFileLookup.resolveActualName(in: mountPoint, matching: "RGFX.EXE", fileManager: fm) {
-            try? fm.copyItem(
+        if let rgfxName = CaseInsensitiveFileLookup.resolveActualName(in: mountPoint, matching: "RGFX.EXE", fileManager: fileManager) {
+            try? fileManager.copyItem(
                 atPath: (mountPoint as NSString).appendingPathComponent(rgfxName),
                 toPath: redguardDir.appendingPathComponent("RGFX.EXE").path
             )

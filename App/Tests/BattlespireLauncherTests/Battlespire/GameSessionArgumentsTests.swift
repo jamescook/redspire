@@ -9,7 +9,7 @@ struct GameSessionArgumentsTests {
     }
 
     @Test func xBackendIncludesNoPromptFolder() {
-        let args = GameSession.buildArguments(gameDir: "/games/bs", cdImage: "/games/bs/game.ins", backend: .x, fullscreen: false, memsizeMB: 48, confPath: nil)
+        let args = GameSession.buildArguments(gameDir: "/games/bs", cdImage: "/games/bs/game.ins", backend: .dosboxX, fullscreen: false, memsizeMB: 48, confPath: nil)
         #expect(args.first == "-nopromptfolder")
     }
 

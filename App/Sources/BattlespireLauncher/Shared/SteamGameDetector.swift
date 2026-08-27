@@ -56,8 +56,8 @@ enum SteamGameDetector {
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
         let range = NSRange(text.startIndex..., in: text)
         return regex.matches(in: text, range: range).compactMap { match in
-            guard let r = Range(match.range(at: 1), in: text) else { return nil }
-            return String(text[r])
+            guard let matchRange = Range(match.range(at: 1), in: text) else { return nil }
+            return String(text[matchRange])
         }
     }
 }

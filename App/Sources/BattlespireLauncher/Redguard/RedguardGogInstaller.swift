@@ -92,8 +92,8 @@ final class RedguardGogInstaller: ObservableObject {
         handle = runner.runAsync(
             executable: exe,
             arguments: ["--gog", "--output-dir", dest.path, installerPath],
-            onOutput: { [weak self] s in
-                Task { @MainActor in self?.log += s }
+            onOutput: { [weak self] chunk in
+                Task { @MainActor in self?.log += chunk }
             },
             onExit: { [weak self] exitCode in
                 Task { @MainActor in self?.finish(exitCode: exitCode, dest: dest) }

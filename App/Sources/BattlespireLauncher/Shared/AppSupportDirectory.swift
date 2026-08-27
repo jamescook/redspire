@@ -40,9 +40,9 @@ enum AppSupportDirectory {
         guard let items = try? fileManager.contentsOfDirectory(atPath: legacy.path) else { return }
         for item in items {
             let from = legacy.appendingPathComponent(item)
-            let to = current.appendingPathComponent(item)
-            guard !fileManager.fileExists(atPath: to.path) else { continue }
-            try? fileManager.moveItem(at: from, to: to)
+            let dest = current.appendingPathComponent(item)
+            guard !fileManager.fileExists(atPath: dest.path) else { continue }
+            try? fileManager.moveItem(at: from, to: dest)
         }
     }
 }

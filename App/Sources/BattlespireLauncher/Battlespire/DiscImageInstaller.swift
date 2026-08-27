@@ -118,12 +118,12 @@ enum DiscImageInstaller {
     }
 
     private static func copyContents(of sourceDir: String, to destDir: String) throws {
-        let fm = FileManager.default
-        for item in try fm.contentsOfDirectory(atPath: sourceDir) {
+        let fileManager = FileManager.default
+        for item in try fileManager.contentsOfDirectory(atPath: sourceDir) {
             let src = (sourceDir as NSString).appendingPathComponent(item)
             let dst = (destDir as NSString).appendingPathComponent(item)
-            try? fm.removeItem(atPath: dst)
-            try fm.copyItem(atPath: src, toPath: dst)
+            try? fileManager.removeItem(atPath: dst)
+            try fileManager.copyItem(atPath: src, toPath: dst)
         }
     }
 }

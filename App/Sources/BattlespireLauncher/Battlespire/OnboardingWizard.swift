@@ -52,6 +52,10 @@ struct OnboardingWizard: View {
     @StateObject private var gogInstaller = GogInstaller()
     @StateObject private var steamCMDSession = SteamCMDSession()
 
+    private var steamCMDCommand: String {
+        SteamCMDInstaller.command(username: steamUsername, destDir: SteamCMDInstaller.installDestination.path)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             switch screen {
@@ -242,7 +246,8 @@ struct OnboardingWizard: View {
         // the disc-image and patch-apply paths -- so picking the outer
         // folder someone unzipped/extracted to just works.
         guard let resolvedGameDir = DiscImageInstaller.findGameDir(atRoot: gameDir) else {
-            manualErrorMessage = "Couldn't find GAME.EXE in that folder (checked one level down too) -- pick the folder that has it, or its parent."
+            manualErrorMessage = "Couldn't find GAME.EXE in that folder (checked one level down too) -- pick the "
+                + "folder that has it, or its parent."
             return
         }
 
@@ -279,7 +284,9 @@ struct OnboardingWizard: View {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = [UTType(filenameExtension: "iso"), UTType(filenameExtension: "ins"), UTType(filenameExtension: "cue")].compactMap { $0 }
+        panel.allowedContentTypes = [
+            UTType(filenameExtension: "iso"), UTType(filenameExtension: "ins"), UTType(filenameExtension: "cue")
+        ].compactMap { $0 }
         panel.prompt = "Select"
         panel.message = "Select the disc image (.iso/.ins/.cue)"
         if panel.runModal() == .OK, let url = panel.url {
@@ -301,14 +308,18 @@ struct OnboardingWizard: View {
             try PatchApplier.applyFromZipOrFolder(path: url.path, toGameDir: manualGameDir)
             recheckManualInstall()
             if manualIsOldVersion {
-                manualErrorMessage = "Copied files from that, but it still doesn't look like v1.5 (detected: \(manualVersionString ?? "no version string found")). Make sure you picked the official v1.5 patch, not something else."
+                let detected = manualVersionString ?? "no version string found"
+                manualErrorMessage = "Copied files from that, but it still doesn't look like v1.5 (detected: "
+                    + "\(detected)). Make sure you picked the official v1.5 patch, not something else."
             } else {
                 manualErrorMessage = nil
                 let exe = (manualGameDir as NSString).appendingPathComponent("GAME.EXE")
                 let verified = KnownGoodBuilds.isVerified(gameExePath: exe)
+                let runningVersion = manualVersionString ?? "v1.5"
                 manualPatchApplySuccessMessage = verified
                     ? "Update applied — matches a verified official v1.5 build."
-                    : "Update applied — now running \(manualVersionString ?? "v1.5") (doesn't match our known-good checksum, but the version string looks right)."
+                    : "Update applied — now running \(runningVersion) (doesn't match our known-good checksum, "
+                        + "but the version string looks right)."
             }
         } catch {
             manualErrorMessage = error.localizedDescription
@@ -325,7 +336,8 @@ struct OnboardingWizard: View {
             if manualCDImageMissing {
                 issueSection(
                     title: "Missing a disc file",
-                    detail: "This copy is missing a file the game reads from while playing (music, some game data). If you have it separately -- for example your own disc rip -- add it here.",
+                    detail: "This copy is missing a file the game reads from while playing (music, some game "
+                        + "data). If you have it separately -- for example your own disc rip -- add it here.",
                     actionLabel: "Choose Disc File…",
                     action: chooseCDImageForManualInstall
                 )
@@ -335,7 +347,10 @@ struct OnboardingWizard: View {
                 VStack(alignment: .leading, spacing: 8) {
                     issueSection(
                         title: "Older version detected" + (manualVersionString.map { " — \($0)" } ?? ""),
-                        detail: "This looks like the original 1997 release, which has some known bugs (freezing, mouse issues) when run today. There's a free official update that fixes it. Once you've downloaded and unzipped it, point us at those files and we'll copy them in.",
+                        detail: "This looks like the original 1997 release, which has some known bugs "
+                            + "(freezing, mouse issues) when run today. There's a free official update that "
+                            + "fixes it. Once you've downloaded and unzipped it, point us at those files and "
+                            + "we'll copy them in.",
                         actionLabel: "Apply Update…",
                         action: applyPatchForManualInstall
                     )
@@ -367,7 +382,9 @@ struct OnboardingWizard: View {
         }
     }
 
-    private func issueSection(title: String, detail: String, actionLabel: String, action: @escaping () -> Void) -> some View {
+    private func issueSection(
+        title: String, detail: String, actionLabel: String, action: @escaping () -> Void
+    ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Label(title, systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
@@ -471,14 +488,17 @@ struct OnboardingWizard: View {
                     formula: "steamcmd"
                 )
             } else {
-                Text("Enter your Steam username, then copy this command and run it in Terminal -- it'll prompt you for your password and Steam Guard code there.")
+                Text(
+                    "Enter your Steam username, then copy this command and run it in Terminal -- it'll prompt "
+                        + "you for your password and Steam Guard code there."
+                )
                     .font(.callout)
                     .fixedSize(horizontal: false, vertical: true)
                 TextField("Steam username", text: $steamUsername)
                     .textFieldStyle(.roundedBorder)
                     .textContentType(.username)
                     .frame(maxWidth: 240)
-                Text(SteamCMDInstaller.command(username: steamUsername, destDir: SteamCMDInstaller.installDestination.path))
+                Text(steamCMDCommand)
                     .font(.system(.caption2, design: .monospaced))
                     .padding(8)
                     .background(Color.gray.opacity(0.15))
@@ -486,9 +506,9 @@ struct OnboardingWizard: View {
                     .textSelection(.enabled)
                 HStack {
                     Button(commandCopied ? "Copied!" : "Copy Command") {
-                        let pb = NSPasteboard.general
-                        pb.clearContents()
-                        pb.setString(SteamCMDInstaller.command(username: steamUsername, destDir: SteamCMDInstaller.installDestination.path), forType: .string)
+                        let pasteboard = NSPasteboard.general
+                        pasteboard.clearContents()
+                        pasteboard.setString(steamCMDCommand, forType: .string)
                         commandCopied = true
                     }
                     Button("Open Terminal") { openTerminal() }
@@ -562,7 +582,8 @@ struct OnboardingWizard: View {
 
     private var steamCMDTooltip: InfoTooltip {
         InfoTooltip(
-            text: "steamcmd is Valve's official command-line tool for downloading Steam games without the full Steam app — handy for headless/automated installs.",
+            text: "steamcmd is Valve's official command-line tool for downloading Steam games without the full Steam "
+                + "app — handy for headless/automated installs.",
             linkURL: URL(string: "https://developer.valvesoftware.com/wiki/SteamCMD")!
         )
     }
@@ -578,8 +599,13 @@ struct OnboardingWizard: View {
             }
             .keyboardShortcut(.defaultAction)
 
-            if steamRedetectAttempted && SteamDetector.findGameDirectory() == nil && SteamCMDInstaller.findInstalledGameDir() == nil {
-                Label("Still not found. Make sure the install finished, then try again.", systemImage: "exclamationmark.triangle")
+            if steamRedetectAttempted
+                && SteamDetector.findGameDirectory() == nil
+                && SteamCMDInstaller.findInstalledGameDir() == nil {
+                Label(
+                    "Still not found. Make sure the install finished, then try again.",
+                    systemImage: "exclamationmark.triangle"
+                )
                     .font(.callout)
                     .foregroundStyle(.orange)
             }
@@ -664,7 +690,11 @@ struct OnboardingWizard: View {
             LogScrollView(text: steamCMDSession.log)
             Button("Try Again") { steamCMDSession.reset() }
         case .done(let dir):
-            installerOptionCard(icon: "checkmark.circle.fill", color: .green, text: "Downloaded successfully via steamcmd.")
+            installerOptionCard(
+                icon: "checkmark.circle.fill",
+                color: .green,
+                text: "Downloaded successfully via steamcmd."
+            )
             Button("Continue") {
                 gameDirectoryPath = dir
                 complete()
@@ -700,7 +730,8 @@ struct OnboardingWizard: View {
                     installerOptionCard(
                         icon: "checkmark.circle.fill",
                         color: .green,
-                        text: "The \"offline backup installer\" (100s of MB, named setup_*.exe) — this is the one you need."
+                        text: "The \"offline backup installer\" (100s of MB, named setup_*.exe) — this is the one "
+                            + "you need."
                     )
                     installerOptionCard(
                         icon: "xmark.circle.fill",
@@ -714,7 +745,8 @@ struct OnboardingWizard: View {
                     .foregroundStyle(.secondary)
 
                 Button("Open Battlespire on GOG.com") {
-                    NSWorkspace.shared.open(URL(string: "https://www.gog.com/en/game/an_elder_scrolls_legend_battlespire")!)
+                    let urlString = "https://www.gog.com/en/game/an_elder_scrolls_legend_battlespire"
+                    NSWorkspace.shared.open(URL(string: urlString)!)
                 }
                 .disabled(gogInstaller.isRunning)
 

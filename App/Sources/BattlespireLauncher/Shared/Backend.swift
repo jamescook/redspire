@@ -2,14 +2,18 @@ import Foundation
 
 enum Backend: String, CaseIterable, Identifiable {
     case staging
-    case x
+    // Explicit rawValue "x" (not derived from the case name) so renaming
+    // this identifier for lint compliance doesn't silently change the
+    // string persisted via @AppStorage -- anyone with "x" already saved
+    // would otherwise find their backend choice quietly reset to default.
+    case dosboxX = "x"
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
         case .staging: return "dosbox-staging"
-        case .x: return "dosbox-x"
+        case .dosboxX: return "dosbox-x"
         }
     }
 
@@ -34,7 +38,7 @@ enum Backend: String, CaseIterable, Identifiable {
         switch self {
         case .staging:
             return ExecutableLocator.firstExecutable(in: Backend.stagingCandidates)
-        case .x:
+        case .dosboxX:
             return ExecutableLocator.firstExecutable(in: [Backend.xCandidate])
         }
     }
@@ -44,7 +48,7 @@ enum Backend: String, CaseIterable, Identifiable {
     var installHint: String {
         switch self {
         case .staging: return "brew install dosbox-staging"
-        case .x: return "brew install --cask dosbox-x-app"
+        case .dosboxX: return "brew install --cask dosbox-x-app"
         }
     }
 

@@ -76,8 +76,8 @@ struct RootView: View {
     private var modePicker: some View {
         HStack(spacing: 6) {
             Picker("Game", selection: $mode) {
-                ForEach(GameMode.allCases) { m in
-                    Text(m.displayName).tag(m)
+                ForEach(GameMode.allCases) { candidate in
+                    Text(candidate.displayName).tag(candidate)
                 }
             }
             .pickerStyle(.segmented)

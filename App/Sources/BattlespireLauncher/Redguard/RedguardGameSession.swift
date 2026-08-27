@@ -48,7 +48,7 @@ final class RedguardGameSession: ObservableObject {
         if let confPath {
             args += ["-conf", confPath]
         }
-        if backend == .x {
+        if backend == .dosboxX {
             args.append("-nopromptfolder")
         }
         args += ["--set", "dosbox memsize=\(memsizeMB)"]

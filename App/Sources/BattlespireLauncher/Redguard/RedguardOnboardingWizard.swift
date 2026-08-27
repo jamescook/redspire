@@ -48,6 +48,13 @@ struct RedguardOnboardingWizard: View {
         findInstalledGameDir: { RedguardSteamCMDInstaller.findInstalledGameDir(root: $0) }
     )
 
+    private var steamCMDCommand: String {
+        RedguardSteamCMDInstaller.command(
+            username: steamUsername,
+            destDir: RedguardSteamCMDInstaller.installDestination.path
+        )
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             switch screen {
@@ -185,7 +192,8 @@ struct RedguardOnboardingWizard: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
 
         guard FileManager.default.fileExists(atPath: url.appendingPathComponent("Redguard/REDGUARD.EXE").path) else {
-            manualErrorMessage = "Couldn't find Redguard/REDGUARD.EXE in that folder -- pick the folder that has a Redguard subfolder directly inside it."
+            manualErrorMessage = "Couldn't find Redguard/REDGUARD.EXE in that folder -- pick the folder "
+                + "that has a Redguard subfolder directly inside it."
             return
         }
 
@@ -287,14 +295,17 @@ struct RedguardOnboardingWizard: View {
                     formula: "steamcmd"
                 )
             } else {
-                Text("Enter your Steam username, then copy this command and run it in Terminal -- it'll prompt you for your password and Steam Guard code there.")
+                Text(
+                    "Enter your Steam username, then copy this command and run it in Terminal -- it'll prompt "
+                        + "you for your password and Steam Guard code there."
+                )
                     .font(.callout)
                     .fixedSize(horizontal: false, vertical: true)
                 TextField("Steam username", text: $steamUsername)
                     .textFieldStyle(.roundedBorder)
                     .textContentType(.username)
                     .frame(maxWidth: 240)
-                Text(RedguardSteamCMDInstaller.command(username: steamUsername, destDir: RedguardSteamCMDInstaller.installDestination.path))
+                Text(steamCMDCommand)
                     .font(.system(.caption2, design: .monospaced))
                     .padding(8)
                     .background(Color.gray.opacity(0.15))
@@ -302,9 +313,9 @@ struct RedguardOnboardingWizard: View {
                     .textSelection(.enabled)
                 HStack {
                     Button(commandCopied ? "Copied!" : "Copy Command") {
-                        let pb = NSPasteboard.general
-                        pb.clearContents()
-                        pb.setString(RedguardSteamCMDInstaller.command(username: steamUsername, destDir: RedguardSteamCMDInstaller.installDestination.path), forType: .string)
+                        let pasteboard = NSPasteboard.general
+                        pasteboard.clearContents()
+                        pasteboard.setString(steamCMDCommand, forType: .string)
                         commandCopied = true
                     }
                     Button("Open Terminal") { openTerminal() }
@@ -378,7 +389,8 @@ struct RedguardOnboardingWizard: View {
 
     private var steamCMDTooltip: InfoTooltip {
         InfoTooltip(
-            text: "steamcmd is Valve's official command-line tool for downloading Steam games without the full Steam app — handy for headless/automated installs.",
+            text: "steamcmd is Valve's official command-line tool for downloading Steam games without the full Steam "
+                + "app — handy for headless/automated installs.",
             linkURL: URL(string: "https://developer.valvesoftware.com/wiki/SteamCMD")!
         )
     }
@@ -387,15 +399,21 @@ struct RedguardOnboardingWizard: View {
         VStack(alignment: .leading, spacing: 8) {
             Button("I've Installed It — Detect Again") {
                 steamRedetectAttempted = true
-                if let found = RedguardSteamDetector.findGameDirectory() ?? RedguardSteamCMDInstaller.findInstalledGameDir() {
+                if let found = RedguardSteamDetector.findGameDirectory()
+                    ?? RedguardSteamCMDInstaller.findInstalledGameDir() {
                     gameDirectoryPath = found
                     complete()
                 }
             }
             .keyboardShortcut(.defaultAction)
 
-            if steamRedetectAttempted && RedguardSteamDetector.findGameDirectory() == nil && RedguardSteamCMDInstaller.findInstalledGameDir() == nil {
-                Label("Still not found. Make sure the install finished, then try again.", systemImage: "exclamationmark.triangle")
+            if steamRedetectAttempted
+                && RedguardSteamDetector.findGameDirectory() == nil
+                && RedguardSteamCMDInstaller.findInstalledGameDir() == nil {
+                Label(
+                    "Still not found. Make sure the install finished, then try again.",
+                    systemImage: "exclamationmark.triangle"
+                )
                     .font(.callout)
                     .foregroundStyle(.orange)
             }
@@ -480,7 +498,11 @@ struct RedguardOnboardingWizard: View {
             LogScrollView(text: steamCMDSession.log)
             Button("Try Again") { steamCMDSession.reset() }
         case .done(let dir):
-            installerOptionCard(icon: "checkmark.circle.fill", color: .green, text: "Downloaded successfully via steamcmd.")
+            installerOptionCard(
+                icon: "checkmark.circle.fill",
+                color: .green,
+                text: "Downloaded successfully via steamcmd."
+            )
             Button("Continue") {
                 gameDirectoryPath = dir
                 complete()
@@ -516,7 +538,8 @@ struct RedguardOnboardingWizard: View {
                     installerOptionCard(
                         icon: "checkmark.circle.fill",
                         color: .green,
-                        text: "The \"offline backup installer\" (100s of MB, named setup_*.exe) — this is the one you need."
+                        text: "The \"offline backup installer\" (100s of MB, named setup_*.exe) — this is the one "
+                            + "you need."
                     )
                     installerOptionCard(
                         icon: "xmark.circle.fill",
@@ -530,7 +553,8 @@ struct RedguardOnboardingWizard: View {
                     .foregroundStyle(.secondary)
 
                 Button("Open Redguard on GOG.com") {
-                    NSWorkspace.shared.open(URL(string: "https://www.gog.com/en/game/the_elder_scrolls_adventures_redguard")!)
+                    let urlString = "https://www.gog.com/en/game/the_elder_scrolls_adventures_redguard"
+                    NSWorkspace.shared.open(URL(string: urlString)!)
                 }
                 .disabled(gogInstaller.isRunning)
 
@@ -631,7 +655,10 @@ struct RedguardOnboardingWizard: View {
             Text("Install from Disc Image").font(.title2).bold()
 
             if discInstaller.stage == nil {
-                Text("Point this at a ripped copy of Disc 1 (the Install Disc) as a .iso file. If you haven't ripped it yet, ripping tools like bchunk can pull one off the physical disc.")
+                Text(
+                    "Point this at a ripped copy of Disc 1 (the Install Disc) as a .iso file. If you haven't "
+                        + "ripped it yet, ripping tools like bchunk can pull one off the physical disc."
+                )
                     .font(.callout)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -645,7 +672,8 @@ struct RedguardOnboardingWizard: View {
         if !UnshieldTool.isInstalled {
             MissingHomebrewToolView(
                 toolName: "unshield",
-                reason: "the retail disc's installer is an InstallShield package that needs it to unpack without running Windows",
+                reason: "the retail disc's installer is an InstallShield package that needs it to unpack without "
+                    + "running Windows",
                 formula: "unshield"
             )
         } else {
@@ -694,16 +722,21 @@ struct RedguardOnboardingWizard: View {
                 installerOptionCard(
                     icon: "exclamationmark.triangle.fill",
                     color: .orange,
-                    text: "Everything else is ready, but this game also needs a file called GLIDE2X.OVL that the retail disc doesn't include (a licensing thing, not a bug on our end)."
+                    text: "Everything else is ready, but this game also needs a file called GLIDE2X.OVL that the "
+                        + "retail disc doesn't include (a licensing thing, not a bug on our end)."
                 )
-                Text("If you also own this game on GOG, open that install's DOSBOX folder and pick glide2x_emu.ovl there. Otherwise, DOSBox-X's own guide explains where to find an official copy.")
+                Text(
+                    "If you also own this game on GOG, open that install's DOSBOX folder and pick glide2x_emu.ovl "
+                        + "there. Otherwise, DOSBox-X's own guide explains where to find an official copy."
+                )
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack {
                     Button("Choose File…") { browseForGlideDriver(gameDir: gameDir) }
                     Button("Open DOSBox-X's Guide") {
-                        NSWorkspace.shared.open(URL(string: "https://dosbox-x.com/wiki/Guide:Setting-up-3dfx-Voodoo-in-DOSBox%E2%80%90X")!)
+                        let urlString = "https://dosbox-x.com/wiki/Guide:Setting-up-3dfx-Voodoo-in-DOSBox%E2%80%90X"
+                        NSWorkspace.shared.open(URL(string: urlString)!)
                     }
                 }
             }
@@ -712,7 +745,10 @@ struct RedguardOnboardingWizard: View {
 
     private var playDiscPrompt: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("This game also plays its videos and music from its second disc while you're playing. Add that now so everything works, or add it later from the main screen.")
+            Text(
+                "This game also plays its videos and music from its second disc while you're playing. Add that "
+                    + "now so everything works, or add it later from the main screen."
+            )
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

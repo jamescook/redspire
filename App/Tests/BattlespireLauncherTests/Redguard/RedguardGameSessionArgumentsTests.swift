@@ -9,7 +9,7 @@ struct RedguardGameSessionArgumentsTests {
     }
 
     @Test func xBackendIncludesNoPromptFolder() {
-        let args = RedguardGameSession.buildArguments(gameDir: "/games/rg", cdImage: "/games/rg/game.ins", backend: .x, fullscreen: false, memsizeMB: 63, confPath: nil)
+        let args = RedguardGameSession.buildArguments(gameDir: "/games/rg", cdImage: "/games/rg/game.ins", backend: .dosboxX, fullscreen: false, memsizeMB: 63, confPath: nil)
         #expect(args.first == "-nopromptfolder")
     }
 
