@@ -30,7 +30,5 @@ and this project uses [Semantic Versioning](https://semver.org/).
 - Hover tooltips explaining the DOSBox backend and memory controls.
 - `build.sh`: parameterized codesign + notarization pipeline; CI workflow
   plumbing for automated builds.
-- `play-battlespire.sh`, a companion CLI script for launching without the
-  GUI app.
 
 [Unreleased]: https://github.com/jamescook/redspire/commits/main

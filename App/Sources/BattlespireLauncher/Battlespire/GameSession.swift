@@ -31,8 +31,8 @@ final class GameSession: ObservableObject {
 
     private var process: Process?
 
-    /// Pure: the exact DOSBox argv for a launch, mirroring play-battlespire.sh.
-    /// Testable without spawning DOSBox. `confPath`, when given, is passed
+    /// Pure: the exact DOSBox argv for a launch. Testable without spawning
+    /// DOSBox. `confPath`, when given, is passed
     /// via -conf so the launch never silently depends on the user's own
     /// ambient dosbox-staging.conf -- see RedguardGameSession's identical
     /// parameter for the regression that motivated this.

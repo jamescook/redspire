@@ -52,18 +52,6 @@ open dist/Redspire.app
 `build.sh` also supports signed, notarized builds for distributing outside
 your own Mac — see the comments at the top of the script.
 
-## Command-line, no GUI
-
-`play-battlespire.sh` (repo root) launches Battlespire directly without the
-app, for an already-installed copy:
-
-```
-./play-battlespire.sh /path/to/battlespire-folder
-```
-
-See `--help` for fullscreen/memory/backend options. Redguard doesn't have
-an equivalent script yet — use the app.
-
 ## Troubleshooting
 
 - Prefer `dosbox-staging` over the `dosbox-x` **Homebrew formula** — that
