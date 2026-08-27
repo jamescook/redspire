@@ -56,10 +56,13 @@ your own Mac — see the comments at the top of the script.
 
 ## Troubleshooting
 
-- Prefer `dosbox-staging` over the `dosbox-x` **Homebrew formula** — that
-  formula is built with `--enable-debug=heavy`, which costs real
-  performance. The `dosbox-x-app` **cask** is fine as an alternative if you
-  want to try dosbox-x.
+- `dosbox-staging` is the recommended backend — it's more actively
+  maintained and correctly detects Battlespire's video mode. `dosbox-x` is a
+  fine alternative if staging doesn't work for you; get it via the
+  `dosbox-x-app` **cask** (`brew install --cask dosbox-x-app`), the official
+  prebuilt release, rather than the `dosbox-x` Homebrew **formula** (which
+  builds from source and takes noticeably longer to install for no benefit
+  here).
 - If dosbox-x is quarantined by Gatekeeper after `brew install --cask
   dosbox-x-app`, clear it once with:
   ```
