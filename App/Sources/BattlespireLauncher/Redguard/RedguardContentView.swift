@@ -15,9 +15,20 @@ struct RedguardContentView: View {
 
     @ObservedObject var session: RedguardGameSession
     @Environment(\.openWindow) private var openWindow
+    // installLooksComplete reads files on disk directly, but SwiftUI only
+    // re-renders when a tracked @State/@AppStorage value actually *changes*
+    // -- if the wizard finishes an install without gameDirectoryPath's
+    // string value changing, nothing signals SwiftUI to recompute it.
+    // Bumping this on refocus (e.g. after closing the wizard) forces that
+    // section to redraw fresh. Same pattern as Battlespire's ContentView.
+    @State private var refreshToken = UUID()
 
     private var backend: Backend {
         Backend(rawValue: backendRaw) ?? .staging
+    }
+
+    private var installLooksComplete: Bool {
+        RedguardInstallCheck.looksComplete(gameDir: gameDirectoryPath)
     }
 
     var body: some View {
@@ -48,7 +59,13 @@ struct RedguardContentView: View {
                         openWindow(id: "redguard-onboarding-wizard")
                     }
                 }
+                if installLooksComplete {
+                    Label("Install looks complete", systemImage: "checkmark.seal.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
             }
+            .id(refreshToken)
 
             GroupBox("Second Disc (videos & music)") {
                 HStack {
@@ -112,6 +129,9 @@ struct RedguardContentView: View {
         }
         .padding(20)
         .frame(minWidth: 460, minHeight: 480)
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            refreshToken = UUID()
+        }
     }
 
     private func chooseFolder() {
