@@ -21,7 +21,7 @@ struct RootView: View {
     }
 
     /// Pure: whether the mode picker should accept input right now.
-    static func isPickerEnabled(isSessionRunning: Bool) -> Bool {
+    nonisolated static func isPickerEnabled(isSessionRunning: Bool) -> Bool {
         !isSessionRunning
     }
 
