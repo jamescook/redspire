@@ -82,9 +82,46 @@ if [ -d "$RESOURCE_BUNDLE" ]; then
   cp -R "$RESOURCE_BUNDLE"/. "$APP/Contents/Resources/"
 fi
 
+# Pre-built Desktop-shortcut stub apps (see DesktopShortcutCreator.swift):
+# each is a tiny AppleScript applet whose only job is `open location
+# "redspire://launch/<mode>"`, reopening this same app. Built and signed
+# here (with the same real Developer ID identity as the main app) rather
+# than compiled on demand at runtime, so a Desktop shortcut isn't an
+# ad-hoc-signed app Gatekeeper flags as being from an "unidentified
+# developer" -- DesktopShortcutCreator falls back to compiling one on the
+# fly if this Shortcuts folder isn't present (true for `swift
+# run`/`swift test`, which never go through this script).
+#
+# Signed together with the outer app below in ONE codesign invocation
+# (never --deep): --deep re-signing a bundle that already contains
+# independently-signed nested bundles is exactly the case Apple's own
+# codesign docs warn --deep isn't reliable for -- confirmed live, it hung
+# indefinitely here rather than erroring, the one time this used --deep on
+# the outer app after these stubs existed. codesign accepts multiple target
+# paths in a single invocation and signs each with its own identifier, so
+# doing all three (both stubs + the outer app) together, still without
+# --deep, needs only the one Keychain authorization for the whole build
+# instead of one per target.
+#
+# NAME:token pairs below must match GameMode's displayName/rawValue exactly
+# (see GameMode.swift) -- nothing enforces that at compile time since this
+# is bash, not Swift.
+echo "==> Building Desktop-shortcut stub apps"
+SHORTCUTS_DIR="$APP/Contents/Resources/Shortcuts"
+mkdir -p "$SHORTCUTS_DIR"
+STUB_PATHS=()
+for entry in "Battlespire:battlespire" "Redguard:redguard"; do
+  NAME="${entry%%:*}"
+  TOKEN="${entry##*:}"
+  STUB="$SHORTCUTS_DIR/$NAME.app"
+  rm -rf "$STUB"
+  osacompile -o "$STUB" -e "open location \"redspire://launch/$TOKEN\""
+  STUB_PATHS+=("$STUB")
+done
+
 echo "==> Codesigning ($CODESIGN_IDENTITY)"
-codesign --force --deep --options runtime --timestamp \
-  --sign "$CODESIGN_IDENTITY" "$APP"
+codesign --force --options runtime --timestamp \
+  --sign "$CODESIGN_IDENTITY" "${STUB_PATHS[@]}" "$APP"
 
 echo "==> Verifying signature"
 codesign --verify --deep --strict --verbose=2 "$APP"

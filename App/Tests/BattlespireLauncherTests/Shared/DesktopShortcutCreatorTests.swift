@@ -118,6 +118,73 @@ struct DesktopShortcutCreatorTests {
         #expect(DesktopShortcutCreator.isInstalled(for: .redguard, desktopURL: desktop) == false)
     }
 
+    // MARK: - pre-built stub (alias) path
+
+    @Test func createsAnAliasToThePrebuiltStubWithoutEverInvokingOsacompile() throws {
+        let desktop = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: desktop) }
+        let stub = try makeTempDir().appendingPathComponent("Battlespire.app")
+        try FileManager.default.createDirectory(at: stub, withIntermediateDirectories: true)
+        let runner = FakeProcessRunner() // never touched -- the pre-built path skips osacompile entirely
+
+        let appURL = try DesktopShortcutCreator.createShortcut(
+            for: .battlespire, desktopURL: desktop, runner: runner, prebuiltStubLookup: { _ in stub }
+        )
+
+        #expect(runner.syncCalls.isEmpty)
+        let bookmark = try URL.bookmarkData(withContentsOf: appURL)
+        var isStale = false
+        let resolved = try URL(resolvingBookmarkData: bookmark, options: [], relativeTo: nil, bookmarkDataIsStale: &isStale)
+        #expect(resolved.standardizedFileURL == stub.standardizedFileURL)
+    }
+
+    @Test func fallsBackToOnDemandCompileWhenThePrebuiltStubLookupPathDoesNotExist() throws {
+        // Guards against a dangling/misconfigured lookup (e.g. the
+        // Shortcuts folder didn't actually get built) silently producing a
+        // broken alias to nothing -- must still produce a working shortcut.
+        let desktop = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: desktop) }
+        let nonexistentStub = desktop.appendingPathComponent("nowhere/Battlespire.app")
+        let runner = FakeProcessRunner()
+        runner.syncResult = (0, "")
+
+        _ = try DesktopShortcutCreator.createShortcut(
+            for: .battlespire, desktopURL: desktop, runner: runner, prebuiltStubLookup: { _ in nonexistentStub }
+        )
+
+        #expect(runner.syncCalls.count == 1)
+        #expect(runner.syncCalls[0].executable == "/usr/bin/osacompile")
+    }
+
+    @Test func isInstalledTrueWhenAliasResolvesToTheExpectedPrebuiltStub() throws {
+        let desktop = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: desktop) }
+        let stub = try makeTempDir().appendingPathComponent("Battlespire.app")
+        try FileManager.default.createDirectory(at: stub, withIntermediateDirectories: true)
+        _ = try DesktopShortcutCreator.createShortcut(
+            for: .battlespire, desktopURL: desktop, prebuiltStubLookup: { _ in stub }
+        )
+
+        #expect(DesktopShortcutCreator.isInstalled(for: .battlespire, desktopURL: desktop, prebuiltStubLookup: { _ in stub }) == true)
+    }
+
+    @Test func isInstalledFalseWhenAliasResolvesToADifferentStubThanExpected() throws {
+        // Guards against a stale alias left over from before, say, the
+        // bundled stub's location changed -- must not read as installed
+        // just because a same-named alias file exists.
+        let desktop = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: desktop) }
+        let oldStub = try makeTempDir().appendingPathComponent("Battlespire.app")
+        try FileManager.default.createDirectory(at: oldStub, withIntermediateDirectories: true)
+        let newStub = try makeTempDir().appendingPathComponent("Battlespire.app")
+        try FileManager.default.createDirectory(at: newStub, withIntermediateDirectories: true)
+        _ = try DesktopShortcutCreator.createShortcut(
+            for: .battlespire, desktopURL: desktop, prebuiltStubLookup: { _ in oldStub }
+        )
+
+        #expect(DesktopShortcutCreator.isInstalled(for: .battlespire, desktopURL: desktop, prebuiltStubLookup: { _ in newStub }) == false)
+    }
+
     private func makeTempDir() throws -> URL {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
