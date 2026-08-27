@@ -31,6 +31,12 @@ struct RootView: View {
             Divider()
             content
         }
+        // Without this, switching tabs to a shorter mode leaves the window
+        // at its previous (taller) size -- SwiftUI then centers this VStack
+        // in the leftover space instead of anchoring it to the top, so the
+        // heading visibly jumps up/down depending which tab you're on. This
+        // pins content flush under the divider regardless of window height.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     @ViewBuilder
