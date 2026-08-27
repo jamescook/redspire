@@ -22,6 +22,9 @@ struct RedguardContentView: View {
     // Bumping this on refocus (e.g. after closing the wizard) forces that
     // section to redraw fresh. Same pattern as Battlespire's ContentView.
     @State private var refreshToken = UUID()
+    @State private var shortcutMessage: String?
+    @State private var shortcutInstalled = false
+    @State private var showingShortcutCreatedInfo = false
 
     private var backend: Backend {
         Backend(rawValue: backendRaw) ?? .staging
@@ -107,6 +110,12 @@ struct RedguardContentView: View {
                 }
             }
 
+            if let shortcutMessage {
+                Label(shortcutMessage, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .font(.caption)
+            }
+
             if let error = session.lastError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.red)
@@ -121,6 +130,14 @@ struct RedguardContentView: View {
                 Text(session.isRunning ? "Running" : "Not running")
                     .foregroundStyle(.secondary)
                 Spacer()
+                Button("Create Desktop Shortcut") { createDesktopShortcut() }
+                    .disabled(shortcutInstalled)
+                    .help(
+                        shortcutInstalled
+                            ? "Already on your Desktop."
+                            : "Adds a Redguard icon to your Desktop that opens this game directly."
+                    )
+                Divider().frame(height: 20)
                 if session.isRunning {
                     Button("Quit Game") { session.quit() }
                 } else {
@@ -132,8 +149,20 @@ struct RedguardContentView: View {
         }
         .padding(20)
         .frame(minWidth: 460, minHeight: 480)
+        .onAppear {
+            shortcutInstalled = DesktopShortcutCreator.isInstalled(for: .redguard)
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             refreshToken = UUID()
+            shortcutInstalled = DesktopShortcutCreator.isInstalled(for: .redguard)
+        }
+        .alert("Desktop Shortcut Added", isPresented: $showingShortcutCreatedInfo) {
+            Button("OK") {}
+        } message: {
+            Text(
+                "The first time you open it, macOS will ask you to confirm you want to run it -- that's expected "
+                    + "for a locally-created app like this, not a sign of a problem. After that, it just works."
+            )
         }
     }
 
@@ -172,5 +201,17 @@ struct RedguardContentView: View {
             fullscreen: fullscreen,
             memsizeMB: memsizeMB
         )
+    }
+
+    private func createDesktopShortcut() {
+        do {
+            _ = try DesktopShortcutCreator.createShortcut(for: .redguard)
+            shortcutMessage = nil
+            shortcutInstalled = true
+            showingShortcutCreatedInfo = true
+        } catch {
+            shortcutMessage = error.localizedDescription
+            shortcutInstalled = DesktopShortcutCreator.isInstalled(for: .redguard)
+        }
     }
 }
