@@ -4,7 +4,7 @@ import Foundation
 /// archives without running the (Windows) installer itself. Unlike
 /// Battlespire's raw disc, Redguard's retail installer is a real
 /// InstallShield package -- `cabextract` can't read its proprietary CAB
-/// variant, `unshield` can. See REDGUARD.md.
+/// variant, `unshield` can.
 enum UnshieldTool {
     static let candidates = [
         "/opt/homebrew/bin/unshield",

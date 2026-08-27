@@ -22,8 +22,7 @@ enum RedguardDiscInstallStage: Equatable {
 /// 3dfx-authored binary of unclear redistribution rights, not something
 /// DOSBox/SVN-Daum wrote. Extraction still succeeds without it; the stage
 /// becomes .needsGlideDriver so the wizard can ask the user to supply their
-/// own legitimate copy (e.g. from a GOG install of the same game). See
-/// REDGUARD.md.
+/// own legitimate copy (e.g. from a GOG install of the same game).
 @MainActor
 final class RedguardDiscImageInstaller: ObservableObject {
     @Published private(set) var stage: RedguardDiscInstallStage?

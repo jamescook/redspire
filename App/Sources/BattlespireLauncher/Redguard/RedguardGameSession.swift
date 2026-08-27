@@ -30,7 +30,7 @@ enum RedguardSessionError: LocalizedError {
 /// C: (containing both a `Redguard/` subfolder and `game.ins`), not the
 /// folder GAME.EXE sits directly in like Battlespire -- confirmed via a real
 /// GOG extraction and the manual dosbox-staging smoke test that first got
-/// this game running at all. See RedguardGogInstaller and REDGUARD.md.
+/// this game running at all. See RedguardGogInstaller.
 @MainActor
 final class RedguardGameSession: ObservableObject {
     @Published private(set) var isRunning = false
