@@ -106,6 +106,69 @@ struct RedguardDiscImageInstallerLogicTests {
         #expect(FileManager.default.contents(atPath: gameDir.appendingPathComponent("Redguard/GLIDE2X.OVL").path) == Data("driver bytes".utf8))
     }
 
+    // MARK: - deallocation mid-extraction
+
+    /// Regression test for a real leak: the onExit closure used to guard its
+    /// whole body (including the DiscMounter.unmount call) on `self` still
+    /// being alive when unshield's process exit fired. If the installer was
+    /// deallocated first -- e.g. the wizard sheet dismissed mid-extraction,
+    /// nothing else retaining it -- the mounted disc image was silently
+    /// never detached and stayed mounted indefinitely.
+    @Test @MainActor func unmountsDiscEvenWhenDeallocatedBeforeUnshieldExits() async throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        FileManager.default.createFile(atPath: dir.appendingPathComponent("DATA1.CAB").path, contents: Data())
+
+        let destRoot = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: destRoot) }
+
+        let runner = DeferredExitRunner(mountPoint: dir.path)
+        var installer: RedguardDiscImageInstaller? = RedguardDiscImageInstaller(
+            runner: runner, unshieldPath: { "/usr/bin/true" }, destinationRoot: destRoot
+        )
+        installer?.extract(isoPath: "/tmp/fake.iso")
+        await drainMainActorTasks()
+
+        installer = nil // deallocated before unshield's process exit fires
+        runner.fireExit(0)
+        await drainMainActorTasks()
+
+        #expect(runner.syncCalls.contains { $0.arguments.contains("detach") })
+    }
+
+    /// Mounts successfully (runSync, for hdiutil) and, on runAsync, holds
+    /// onto the onExit callback instead of firing it immediately -- lets a
+    /// test deallocate the installer before simulating unshield's exit.
+    private final class DeferredExitRunner: ProcessRunning {
+        let mountPoint: String
+        private(set) var syncCalls: [(executable: String, arguments: [String])] = []
+        private var pendingExit: ((Int32) -> Void)?
+
+        init(mountPoint: String) { self.mountPoint = mountPoint }
+
+        func runSync(executable: String, arguments: [String]) -> (exitCode: Int32, output: String) {
+            syncCalls.append((executable, arguments))
+            guard arguments.contains("attach") else { return (0, "") }
+            let plist = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0"><dict><key>system-entities</key><array>
+            <dict><key>mount-point</key><string>\(mountPoint)</string></dict>
+            </array></dict></plist>
+            """
+            return (0, plist)
+        }
+
+        func runAsync(executable: String, arguments: [String], onOutput: @escaping (String) -> Void, onExit: @escaping (Int32) -> Void) -> ProcessHandle {
+            pendingExit = onExit
+            return FakeProcessHandle()
+        }
+
+        func fireExit(_ exitCode: Int32) {
+            pendingExit?(exitCode)
+        }
+    }
+
     // MARK: - reset
 
     /// Real bug: the wizard never called reset() on this object, so

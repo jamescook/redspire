@@ -122,6 +122,12 @@ final class RedguardDiscImageInstaller: ObservableObject {
         stage = .extracting
         isRunning = true
 
+        // Captured by value (not through self) so the disc image still gets
+        // unmounted even if this installer is deallocated mid-extraction --
+        // e.g. the wizard sheet is dismissed before unshield finishes and
+        // nothing else retains this instance. Leaving unmount behind a
+        // `guard let self` left the mounted volume orphaned in that case.
+        nonisolated(unsafe) let runner = self.runner
         handle = runner.runAsync(
             executable: unshieldExe,
             arguments: ["x", "-d", dest.path, cabPath],
@@ -130,12 +136,13 @@ final class RedguardDiscImageInstaller: ObservableObject {
             },
             onExit: { [weak self] exitCode in
                 Task { @MainActor in
-                    guard let self else { return }
                     // finish() reads RGFX.EXE from mountPoint (it lives at
                     // the disc root, not inside DATA1.CAB -- unshield never
-                    // sees it), so it must run before unmounting.
-                    self.finish(exitCode: exitCode, dest: dest, mountPoint: mountPoint)
-                    DiscMounter.unmount(mountPoint, runner: self.runner)
+                    // sees it), so it must run before unmounting. It's
+                    // skipped if self is already gone, but the unmount below
+                    // must still happen regardless.
+                    self?.finish(exitCode: exitCode, dest: dest, mountPoint: mountPoint)
+                    DiscMounter.unmount(mountPoint, runner: runner)
                 }
             }
         )
