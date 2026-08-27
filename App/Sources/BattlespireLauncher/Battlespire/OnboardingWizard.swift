@@ -127,19 +127,19 @@ struct OnboardingWizard: View {
             sourceCard(
                 title: "Steam",
                 subtitle: "I own it on Steam",
-                systemImage: "gamecontroller"
+                icon: BrandIcon.image(fileName: "steam-logo.svg", systemImageFallback: "gamecontroller")
             ) { manualErrorMessage = nil; steamCMDSession.reset(); screen = .steamMethodChoice }
 
             sourceCard(
                 title: "GOG",
                 subtitle: "I bought it on GOG.com",
-                systemImage: "arrow.down.circle"
+                icon: BrandIcon.image(fileName: "gog-logo.png", systemImageFallback: "arrow.down.circle")
             ) { manualErrorMessage = nil; gogInstaller.reset(); screen = .gogGuide }
 
             sourceCard(
                 title: "I already have it installed",
                 subtitle: "Point me at an existing game folder, or a disc image if you haven't unpacked it",
-                systemImage: "folder"
+                icon: Image(systemName: "folder")
             ) { chooseExistingFolder() }
 
             if manualExtracting {
@@ -158,11 +158,13 @@ struct OnboardingWizard: View {
         }
     }
 
-    private func sourceCard(title: String, subtitle: String, systemImage: String, action: @escaping () -> Void) -> some View {
+    private func sourceCard(title: String, subtitle: String, icon: Image, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
-                Image(systemName: systemImage)
-                    .font(.title2)
+                icon
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 22, height: 22)
                     .frame(width: 32)
                 VStack(alignment: .leading) {
                     Text(title).bold()

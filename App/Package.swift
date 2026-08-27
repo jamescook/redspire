@@ -17,6 +17,8 @@ let package = Package(
                 .copy("Redguard/Resources/redguard.conf"),
                 .copy("Shared/Resources/Icons/battlespire-sword.svg"),
                 .copy("Shared/Resources/Icons/redguard-scimitar.svg"),
+                .copy("Shared/Resources/Icons/steam-logo.svg"),
+                .copy("Shared/Resources/Icons/gog-logo.png"),
             ]
         ),
         .testTarget(
