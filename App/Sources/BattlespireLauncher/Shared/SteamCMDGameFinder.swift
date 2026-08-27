@@ -1,8 +1,7 @@
 import Foundation
 
 /// Looks for `exeRelativePath` at `root`, or one level down -- steamcmd's
-/// depot layout for a given title isn't always confirmed ahead of time
-/// (Battlespire's own comment on this predates any real depot download), so
+/// depot layout for a given title isn't always confirmed ahead of time, so
 /// this doesn't assume a fixed nesting depth. Shared between Battlespire's
 /// and Redguard's steamcmd installers.
 enum SteamCMDGameFinder {
