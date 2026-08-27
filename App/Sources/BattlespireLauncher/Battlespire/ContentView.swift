@@ -23,6 +23,7 @@ struct ContentView: View {
     @State private var refreshToken = UUID()
     @State private var shortcutMessage: String?
     @State private var shortcutInstalled = false
+    @State private var showingShortcutCreatedInfo = false
 
     private var backend: Backend {
         Backend(rawValue: backendRaw) ?? .staging
@@ -183,7 +184,7 @@ struct ContentView: View {
                     .help(
                         shortcutInstalled
                             ? "Already on your Desktop."
-                            : "Puts a Battlespire icon on your Desktop that launches this game directly."
+                            : "Adds a Battlespire icon to your Desktop that opens this game directly."
                     )
                 Divider().frame(height: 20)
                 if session.isRunning {
@@ -204,6 +205,14 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             refreshToken = UUID()
             shortcutInstalled = DesktopShortcutCreator.isInstalled(for: .battlespire)
+        }
+        .alert("Desktop Shortcut Added", isPresented: $showingShortcutCreatedInfo) {
+            Button("OK") {}
+        } message: {
+            Text(
+                "The first time you open it, macOS will ask you to confirm you want to run it -- that's expected "
+                    + "for a locally-created app like this, not a sign of a problem. After that, it just works."
+            )
         }
     }
 
@@ -252,6 +261,7 @@ struct ContentView: View {
             _ = try DesktopShortcutCreator.createShortcut(for: .battlespire)
             shortcutMessage = nil
             shortcutInstalled = true
+            showingShortcutCreatedInfo = true
         } catch {
             shortcutMessage = error.localizedDescription
             shortcutInstalled = DesktopShortcutCreator.isInstalled(for: .battlespire)

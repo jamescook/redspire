@@ -89,9 +89,18 @@ struct RootView: View {
         // Only hide the window once the session actually started -- if
         // play() failed (e.g. this game's folder was never configured),
         // the window must stay visible so the user can see why, instead of
-        // silently vanishing with no explanation.
+        // silently vanishing with no explanation. The slight delay is
+        // load-bearing, confirmed live: opening a `redspire://` URL while
+        // the app was already running in the background makes Launch
+        // Services activate/foreground it as part of delivering that URL,
+        // and that activation lands microseconds AFTER this notification
+        // handler runs, silently un-minimizing a window we'd just hidden.
+        // Miniaturizing on the next runloop turn instead lets our call go
+        // last.
         if session.isRunning {
-            NSApp.keyWindow?.miniaturize(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                NSApp.windows.first(where: { $0.title == RedspireApp.mainWindowTitle })?.miniaturize(nil)
+            }
         }
     }
 

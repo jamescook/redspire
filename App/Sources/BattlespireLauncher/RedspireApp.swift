@@ -56,8 +56,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct RedspireApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
+    /// RootView's direct-launch flow (see RootView.directLaunch) looks this
+    /// window up by title to miniaturize it -- NSApp.keyWindow isn't
+    /// reliably this window at the moment a direct-launch URL arrives while
+    /// the app was already running in the background (confirmed live: it
+    /// silently failed to hide the window in that exact case).
+    static let mainWindowTitle = "Redspire"
+
     var body: some Scene {
-        WindowGroup {
+        // Window (singular), not WindowGroup: WindowGroup can spawn a
+        // SECOND window -- with its own independent GameSession -- when a
+        // direct-launch URL arrives while the app is already running,
+        // rather than delivering .onOpenURL to the existing one. Real bug
+        // found live via the Desktop shortcut. Window guarantees exactly
+        // one instance of this scene ever exists, matching the two wizard
+        // windows below, which never had this problem for the same reason.
+        Window(Self.mainWindowTitle, id: "main") {
             RootView()
                 // Fired by double-clicking a Desktop shortcut (a tiny stub
                 // app that just reopens this same app via this URL -- see
@@ -72,11 +86,6 @@ struct RedspireApp: App {
                 }
         }
         .windowResizability(.contentSize)
-        // WindowGroup gets a "New Window" (Cmd+N) File menu command for
-        // free -- makes no sense here, a second window would just be a
-        // disconnected duplicate of the same single-window launcher, not a
-        // useful new document/tab. Replacing that slot with something
-        // actually useful instead.
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Reset to Defaults…") {
