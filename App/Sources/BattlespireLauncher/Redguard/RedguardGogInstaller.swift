@@ -2,6 +2,7 @@ import Foundation
 
 enum RedguardGogInstallStage: Equatable {
     case extracting
+    case needsGlideDriver(gameDir: String)
     case done(gameDir: String)
     case failed(String)
 }
@@ -41,7 +42,7 @@ final class RedguardGogInstaller: ObservableObject {
 
     /// Pure mapping from the extraction outcome to the resulting UI stage.
     nonisolated static func resolveStage(
-        exitCode: Int32, redguardExeExists: Bool, gameDir: String
+        exitCode: Int32, redguardExeExists: Bool, hasGlideDriver: Bool, gameDir: String
     ) -> RedguardGogInstallStage {
         guard exitCode == 0 else {
             return .failed("innoextract exited with status \(exitCode). See log above.")
@@ -51,6 +52,9 @@ final class RedguardGogInstaller: ObservableObject {
                 "Extraction finished, but REDGUARD.EXE wasn't found at the expected location. This installer's "
                     + "layout may differ from the version this app was tested against."
             )
+        }
+        guard hasGlideDriver else {
+            return .needsGlideDriver(gameDir: gameDir)
         }
         return .done(gameDir: gameDir)
     }
@@ -120,7 +124,29 @@ final class RedguardGogInstaller: ObservableObject {
             try? FileManager.default.copyItem(at: src, to: redguardDir.appendingPathComponent("GLIDE2X.OVL"))
         }
 
-        stage = Self.resolveStage(exitCode: exitCode, redguardExeExists: exists, gameDir: appRoot.path)
+        // Recheck after the copy attempt above -- it's a try?, so if the
+        // source was missing or the destination wasn't writable, this must
+        // still surface as .needsGlideDriver instead of silently reporting
+        // .done with no working Glide driver in place.
+        let hasGlide = !Self.needsGlideDriver(redguardDir: redguardDir.path, fileManager: .default)
+        stage = Self.resolveStage(
+            exitCode: exitCode, redguardExeExists: exists, hasGlideDriver: hasGlide, gameDir: appRoot.path
+        )
+    }
+
+    /// Recovery path for .needsGlideDriver: the user points us at any
+    /// legitimate GLIDE2X.OVL (e.g. copied out by hand from this same GOG
+    /// installer's DOSBOX folder). Mirrors RedguardDiscImageInstaller's
+    /// method of the same name/shape.
+    func supplyGlideDriver(fromPath sourcePath: String, gameDir: String) {
+        let dst = (gameDir as NSString).appendingPathComponent("Redguard/GLIDE2X.OVL")
+        do {
+            try? FileManager.default.removeItem(atPath: dst)
+            try FileManager.default.copyItem(atPath: sourcePath, toPath: dst)
+            stage = .done(gameDir: gameDir)
+        } catch {
+            stage = .failed("Couldn't copy that file: \(error.localizedDescription)")
+        }
     }
 
     func cancel() {

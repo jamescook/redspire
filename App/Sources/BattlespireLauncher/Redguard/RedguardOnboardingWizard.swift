@@ -607,6 +607,8 @@ struct RedguardOnboardingWizard: View {
                         ProgressView().controlSize(.small)
                         Text("Extracting… this can take a few minutes for a ~900MB installer.")
                     }
+                case .needsGlideDriver:
+                    gogGlideDriverPrompt
                 case .failed(let reason):
                     Label(reason, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
@@ -718,28 +720,47 @@ struct RedguardOnboardingWizard: View {
     @ViewBuilder
     private var glideDriverPrompt: some View {
         if case .needsGlideDriver(let gameDir) = discInstaller.stage {
-            VStack(alignment: .leading, spacing: 10) {
-                installerOptionCard(
-                    icon: "exclamationmark.triangle.fill",
-                    color: .orange,
-                    text: "Everything else is ready, but this game also needs a file called GLIDE2X.OVL that the "
-                        + "retail disc doesn't include (a licensing thing, not a bug on our end)."
-                )
-                Text(
-                    "If you also own this game on GOG, open that install's DOSBOX folder and pick glide2x_emu.ovl "
-                        + "there. Otherwise, DOSBox-X's own guide explains where to find an official copy."
-                )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack {
-                    Button("Choose File…") { browseForGlideDriver(gameDir: gameDir) }
-                    Button("Open DOSBox-X's Guide") {
-                        let urlString = "https://dosbox-x.com/wiki/Guide:Setting-up-3dfx-Voodoo-in-DOSBox%E2%80%90X"
-                        NSWorkspace.shared.open(URL(string: urlString)!)
-                    }
+            missingGlideDriverPrompt(
+                message: "Everything else is ready, but this game also needs a file called GLIDE2X.OVL that the "
+                    + "retail disc doesn't include (a licensing thing, not a bug on our end).",
+                secondaryText: "If you also own this game on GOG, open that install's DOSBOX folder and pick "
+                    + "glide2x_emu.ovl there. Otherwise, DOSBox-X's own guide explains where to find an official "
+                    + "copy."
+            ) {
+                Button("Choose File…") { browseForGlideDriver(gameDir: gameDir) }
+                Button("Open DOSBox-X's Guide") {
+                    let urlString = "https://dosbox-x.com/wiki/Guide:Setting-up-3dfx-Voodoo-in-DOSBox%E2%80%90X"
+                    NSWorkspace.shared.open(URL(string: urlString)!)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var gogGlideDriverPrompt: some View {
+        if case .needsGlideDriver(let gameDir) = gogInstaller.stage {
+            missingGlideDriverPrompt(
+                message: "Everything else is ready, but this game also needs a file called GLIDE2X.OVL that "
+                    + "couldn't be copied into place from this installer.",
+                secondaryText: "This installer normally includes it in its own DOSBOX folder as glide2x_emu.ovl -- "
+                    + "if you still have the extracted files, point at that copy directly."
+            ) {
+                Button("Choose File…") { browseForGogGlideDriver(gameDir: gameDir) }
+                Button("Try Again") { browseForInstaller() }
+            }
+        }
+    }
+
+    private func missingGlideDriverPrompt(
+        message: String, secondaryText: String, @ViewBuilder buttons: () -> some View
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            installerOptionCard(icon: "exclamationmark.triangle.fill", color: .orange, text: message)
+            Text(secondaryText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack { buttons() }
         }
     }
 
@@ -795,6 +816,18 @@ struct RedguardOnboardingWizard: View {
         panel.message = "Select glide2x_emu.ovl (or another legitimate GLIDE2X.OVL)"
         if panel.runModal() == .OK, let url = panel.url {
             discInstaller.supplyGlideDriver(fromPath: url.path, gameDir: gameDir)
+        }
+    }
+
+    private func browseForGogGlideDriver(gameDir: String) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Select"
+        panel.message = "Select glide2x_emu.ovl (or another legitimate GLIDE2X.OVL)"
+        if panel.runModal() == .OK, let url = panel.url {
+            gogInstaller.supplyGlideDriver(fromPath: url.path, gameDir: gameDir)
         }
     }
 
