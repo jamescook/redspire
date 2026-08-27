@@ -14,7 +14,7 @@ enum GameSessionError: LocalizedError {
         case .gameExeNotFound(let dir):
             return "GAME.EXE not found in \(dir). Point at the folder that contains it directly."
         case .cdImageNotFound(let dir):
-            return "No CD image (.ins/.cue/.iso) found in \(dir). Pick one manually if it's named unusually."
+            return "Couldn't find the game's music file (.ins/.cue/.iso) in \(dir). Pick one manually below if it's named unusually."
         case .confResourceMissing:
             return "Couldn't find this app's bundled DOSBox settings (battlespire.conf). Try reinstalling the app."
         }

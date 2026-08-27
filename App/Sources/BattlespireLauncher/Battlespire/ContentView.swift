@@ -79,9 +79,9 @@ struct ContentView: View {
             }
             .id(refreshToken)
 
-            GroupBox("CD Image (optional)") {
+            GroupBox("Music") {
                 HStack {
-                    Text(cdImagePath.isEmpty ? "Auto-detect in game folder (.ins/.cue/.iso)" : cdImagePath)
+                    Text(cdImagePath.isEmpty ? "Found automatically in the game folder -- you shouldn't need to touch this" : cdImagePath)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .foregroundStyle(.secondary)
@@ -196,7 +196,7 @@ struct ContentView: View {
         panel.allowsMultipleSelection = false
         panel.allowedContentTypes = [UTType(filenameExtension: "iso"), UTType(filenameExtension: "ins")].compactMap { $0 }
         panel.prompt = "Select"
-        panel.message = "Select a CD image (.iso / .ins)"
+        panel.message = "Select the game's music file (.iso / .ins)"
         if panel.runModal() == .OK, let url = panel.url {
             cdImagePath = url.path
         }
