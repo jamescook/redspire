@@ -44,9 +44,16 @@ final class SystemProcessRunner: ProcessRunning {
         } catch {
             return (-1, "Failed to run \(executable): \(error.localizedDescription)")
         }
+
+        // Read before waiting: readDataToEndOfFile drains the pipe as data
+        // arrives and only returns once the write end closes (normally at
+        // process exit), so it can't deadlock against a child that writes
+        // more than the pipe's kernel buffer before exiting. Waiting first
+        // (the previous order) left both sides blocked forever in that case
+        // -- the child stuck on write(), us stuck in waitUntilExit().
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         proc.waitUntilExit()
 
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         let output = String(data: data, encoding: .utf8) ?? ""
         return (proc.terminationStatus, output)
     }
