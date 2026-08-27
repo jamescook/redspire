@@ -75,8 +75,7 @@ enum PatchApplier {
         }
         let patchExe = (patchDir as NSString).appendingPathComponent(exeName)
         let destExe = (gameDir as NSString).appendingPathComponent("GAME.EXE")
-        try? fileManager.removeItem(atPath: destExe)
-        try fileManager.copyItem(atPath: patchExe, toPath: destExe)
+        try safeCopyReplacing(from: patchExe, to: destExe, fileManager: fileManager)
 
         guard let dataName = DiscImageInstaller.resolveActualName(
             in: patchDir, matching: "GAMEDATA", fileManager: fileManager
@@ -88,8 +87,32 @@ enum PatchApplier {
         for item in (try? fileManager.contentsOfDirectory(atPath: patchData)) ?? [] {
             let src = (patchData as NSString).appendingPathComponent(item)
             let dst = (destData as NSString).appendingPathComponent(item)
-            try? fileManager.removeItem(atPath: dst)
-            try fileManager.copyItem(atPath: src, toPath: dst)
+            try safeCopyReplacing(from: src, to: dst, fileManager: fileManager)
+        }
+    }
+
+    /// Copies `source` to a temp file beside `destination` first, so a
+    /// failure partway through the copy (disk full, source vanishes mid-copy
+    /// on a flaky external volume, permissions) leaves `destination`
+    /// untouched -- this is the one place in the app that overwrites a game
+    /// install the user already has working, unlike every installer path
+    /// which only wipes its destination after the fresh copy is validated.
+    /// Only once the copy has fully succeeded do we remove the old file and
+    /// move the temp file into place.
+    private static func safeCopyReplacing(
+        from source: String, to destination: String, fileManager: FileManager
+    ) throws {
+        let destDir = (destination as NSString).deletingLastPathComponent
+        let tempDestination = (destDir as NSString).appendingPathComponent(".patch-\(UUID().uuidString).tmp")
+        try fileManager.copyItem(atPath: source, toPath: tempDestination)
+        do {
+            if fileManager.fileExists(atPath: destination) {
+                try fileManager.removeItem(atPath: destination)
+            }
+            try fileManager.moveItem(atPath: tempDestination, toPath: destination)
+        } catch {
+            try? fileManager.removeItem(atPath: tempDestination)
+            throw error
         }
     }
 }

@@ -49,6 +49,36 @@ struct PatchApplierTests {
         #expect(contents(of: gameDir.appendingPathComponent("GAMEDATA/xbow.3d")) == Data("new".utf8))
     }
 
+    @Test func leavesExistingGameExeUntouchedWhenPatchCopyFailsPartway() throws {
+        // Simulates the real defect: previously the code did
+        // `try? removeItem` immediately followed by `try copyItem`, so if
+        // the copy failed *after* the remove already succeeded, the
+        // existing GAME.EXE was just gone. Here the source is made
+        // unreadable so copyItem fails on its own (nothing about the
+        // destination directory is touched), matching a source vanishing
+        // mid-copy on a flaky volume. destDir stays fully writable, so this
+        // only passes if the fix reads/copies the source BEFORE it ever
+        // removes the existing destination.
+        let patchDir = try makeTempDir()
+        let gameDir = try makeTempDir()
+        let unreadableExe = patchDir.appendingPathComponent("GAME.EXE")
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: unreadableExe.path)
+            try? FileManager.default.removeItem(at: patchDir)
+            try? FileManager.default.removeItem(at: gameDir)
+        }
+
+        write("v1.5", to: unreadableExe)
+        write("v1.3", to: gameDir.appendingPathComponent("GAME.EXE"))
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: unreadableExe.path)
+
+        #expect(throws: (any Error).self) {
+            try PatchApplier.apply(patchDir: patchDir.path, toGameDir: gameDir.path)
+        }
+
+        #expect(contents(of: gameDir.appendingPathComponent("GAME.EXE")) == Data("v1.3".utf8))
+    }
+
     @Test func throwsWhenPatchExeMissing() throws {
         let patchDir = try makeTempDir()
         let gameDir = try makeTempDir()
