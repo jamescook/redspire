@@ -22,8 +22,7 @@ page](https://github.com/jamescook/redspire/releases/latest):
 - **Intel** — `Redspire-x86_64.zip`
 
 Unzip, move `Redspire.app` wherever you like (e.g. `/Applications`), and
-open it. It's notarized by Apple, so no Gatekeeper right-click-to-open
-workaround is needed.
+open it.
 
 Once it's open:
 
