@@ -15,8 +15,15 @@ copyrighted assets, just the launcher app and setup instructions.
 
 ## Getting started
 
-There's no pre-built download yet — see [Building from
-source](#building-from-source) below to get the app running.
+Download the latest release from the [Releases
+page](https://github.com/jamescook/redspire/releases/latest):
+
+- **Apple Silicon** (M1/M2/M3/…) — `Redspire-arm64.zip`
+- **Intel** — `Redspire-x86_64.zip`
+
+Unzip, move `Redspire.app` wherever you like (e.g. `/Applications`), and
+open it. It's notarized by Apple, so no Gatekeeper right-click-to-open
+workaround is needed.
 
 Once it's open:
 
@@ -37,6 +44,9 @@ setup, and known compatibility fixes automatically, so you don't need to
 understand how DOSBox or these old installers work under the hood.
 
 ## Building from source
+
+Only needed if you want to build it yourself instead of using a release
+download above.
 
 ```
 brew install dosbox-staging innoextract unshield swiftlint
