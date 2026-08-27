@@ -22,7 +22,7 @@ struct ContentView: View {
     // (e.g. after closing the wizard) forces that section to redraw fresh.
     @State private var refreshToken = UUID()
     @State private var shortcutMessage: String?
-    @State private var shortcutMessageIsError = false
+    @State private var shortcutInstalled = false
 
     private var backend: Backend {
         Backend(rawValue: backendRaw) ?? .staging
@@ -158,16 +158,10 @@ struct ContentView: View {
                 }
             }
 
-            HStack {
-                Button("Create Desktop Shortcut") { createDesktopShortcut() }
-                if let shortcutMessage {
-                    Label(
-                        shortcutMessage,
-                        systemImage: shortcutMessageIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
-                    )
-                        .foregroundStyle(shortcutMessageIsError ? .red : .green)
-                        .font(.caption)
-                }
+            if let shortcutMessage {
+                Label(shortcutMessage, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .font(.caption)
             }
 
             if let error = session.lastError {
@@ -184,6 +178,14 @@ struct ContentView: View {
                 Text(session.isRunning ? "Running" : "Not running")
                     .foregroundStyle(.secondary)
                 Spacer()
+                Button("Create Desktop Shortcut") { createDesktopShortcut() }
+                    .disabled(shortcutInstalled)
+                    .help(
+                        shortcutInstalled
+                            ? "Already on your Desktop."
+                            : "Puts a Battlespire icon on your Desktop that launches this game directly."
+                    )
+                Divider().frame(height: 20)
                 if session.isRunning {
                     Button("Quit Game") { session.quit() }
                 } else {
@@ -197,9 +199,11 @@ struct ContentView: View {
         .frame(minWidth: 460, minHeight: 480)
         .onAppear {
             if !wizardCompleted { openWindow(id: "onboarding-wizard") }
+            shortcutInstalled = DesktopShortcutCreator.isInstalled(for: .battlespire)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             refreshToken = UUID()
+            shortcutInstalled = DesktopShortcutCreator.isInstalled(for: .battlespire)
         }
     }
 
@@ -246,11 +250,11 @@ struct ContentView: View {
     private func createDesktopShortcut() {
         do {
             _ = try DesktopShortcutCreator.createShortcut(for: .battlespire)
-            shortcutMessage = "Added to Desktop."
-            shortcutMessageIsError = false
+            shortcutMessage = nil
+            shortcutInstalled = true
         } catch {
             shortcutMessage = error.localizedDescription
-            shortcutMessageIsError = true
+            shortcutInstalled = DesktopShortcutCreator.isInstalled(for: .battlespire)
         }
     }
 

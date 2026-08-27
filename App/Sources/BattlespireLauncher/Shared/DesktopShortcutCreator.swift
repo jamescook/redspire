@@ -20,14 +20,24 @@ enum DesktopShortcutError: LocalizedError {
 /// GameSession/RedguardGameSession play() a Play-button click would use,
 /// never bypassing this app's own install validation.
 enum DesktopShortcutCreator {
+    static let defaultDesktopURL = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Desktop")
+
+    /// Where a given mode's shortcut lives (or would be created), shared by
+    /// createShortcut/isInstalled here and by AppDefaultsReset's cleanup so
+    /// all three agree on the exact same path.
+    nonisolated static func shortcutURL(for mode: GameMode, desktopURL: URL = defaultDesktopURL) -> URL {
+        desktopURL.appendingPathComponent("\(mode.displayName).app")
+    }
+
     @discardableResult
     static func createShortcut(
         for mode: GameMode,
-        desktopURL: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop"),
+        desktopURL: URL = defaultDesktopURL,
         runner: ProcessRunning = SystemProcessRunner(),
         fileManager: FileManager = .default
     ) throws -> URL {
-        let appURL = desktopURL.appendingPathComponent("\(mode.displayName).app")
+        let appURL = shortcutURL(for: mode, desktopURL: desktopURL)
         // Overwrites a stale shortcut from an earlier run of this same
         // action -- osacompile itself refuses to write over an existing
         // path.
@@ -47,5 +57,24 @@ enum DesktopShortcutCreator {
         }
 
         return appURL
+    }
+
+    /// True only if a shortcut for `mode` exists on the Desktop AND its
+    /// compiled script actually points at this mode's own direct-launch URL
+    /// -- not just that some file happens to have the expected name (e.g. a
+    /// stale shortcut left over from before a rename, or an unrelated file).
+    /// osadecompile round-trips osacompile's output back to readable source,
+    /// so this is a real content check, not just an existence check.
+    static func isInstalled(
+        for mode: GameMode,
+        desktopURL: URL = defaultDesktopURL,
+        runner: ProcessRunning = SystemProcessRunner(),
+        fileManager: FileManager = .default
+    ) -> Bool {
+        let appURL = shortcutURL(for: mode, desktopURL: desktopURL)
+        guard fileManager.fileExists(atPath: appURL.path) else { return false }
+        let result = runner.runSync(executable: "/usr/bin/osadecompile", arguments: [appURL.path])
+        guard result.exitCode == 0 else { return false }
+        return result.output.contains(DirectLaunchURL.url(for: mode).absoluteString)
     }
 }
