@@ -36,7 +36,7 @@ struct RedguardContentView: View {
             HStack(spacing: 10) {
                 BrandIcon.image(fileName: GameMode.redguard.iconFileName, systemImageFallback: GameMode.redguard.systemImage)
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
                     .frame(width: 32, height: 32)
                 Text("Redguard Launcher")
                     .font(.title2).bold()

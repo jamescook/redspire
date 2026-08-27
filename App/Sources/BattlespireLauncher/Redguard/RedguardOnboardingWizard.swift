@@ -156,7 +156,7 @@ struct RedguardOnboardingWizard: View {
             HStack {
                 icon
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
                     .frame(width: 22, height: 22)
                     .frame(width: 32)
                 VStack(alignment: .leading) {

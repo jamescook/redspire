@@ -5,7 +5,7 @@ import Foundation
 enum InnoExtractTool {
     static let candidates = [
         "/opt/homebrew/bin/innoextract",
-        "/usr/local/bin/innoextract",
+        "/usr/local/bin/innoextract"
     ]
 
     static var executablePath: String? {

@@ -23,7 +23,7 @@ struct ContentView: View {
     @State private var refreshToken = UUID()
 
     private var backend: Backend {
-        get { Backend(rawValue: backendRaw) ?? .staging }
+        Backend(rawValue: backendRaw) ?? .staging
     }
 
     private var versionWarning: String? {
@@ -44,7 +44,7 @@ struct ContentView: View {
             HStack(spacing: 10) {
                 BrandIcon.image(fileName: GameMode.battlespire.iconFileName, systemImageFallback: GameMode.battlespire.systemImage)
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
                     .frame(width: 32, height: 32)
                 Text("Battlespire Launcher")
                     .font(.title2).bold()

@@ -163,7 +163,7 @@ struct OnboardingWizard: View {
             HStack {
                 icon
                     .resizable()
-                    .aspectRatio(contentMode: .fit)
+                    .scaledToFit()
                     .frame(width: 22, height: 22)
                     .frame(width: 32)
                 VStack(alignment: .leading) {
@@ -782,7 +782,6 @@ struct OnboardingWizard: View {
             Text(text)
         }
     }
-
 
     private var innoExtractMissingView: some View {
         MissingHomebrewToolView(
