@@ -65,9 +65,9 @@ your own Mac — see the comments at the top of the script.
 
 ## Troubleshooting
 
-- `dosbox-staging` is the recommended backend — it's more actively
-  maintained and correctly detects Battlespire's video mode. `dosbox-x` is a
-  fine alternative if staging doesn't work for you; get it via the
+- `dosbox-staging` is the recommended backend — it correctly detects
+  Battlespire's video mode. `dosbox-x` is a fine alternative if staging
+  doesn't work for you; get it via the
   `dosbox-x-app` **cask** (`brew install --cask dosbox-x-app`), the official
   prebuilt release, rather than the `dosbox-x` Homebrew **formula** (which
   builds from source and takes noticeably longer to install for no benefit
