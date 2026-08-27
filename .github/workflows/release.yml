@@ -24,11 +24,11 @@ name: Release
 #
 # See App/build.sh for what these get used for locally too.
 
+# Disabled for now -- signing/notarization secrets aren't set up yet, so a
+# tag push would just fail loudly. Releases are being built and published
+# locally in the meantime; restore the triggers below once secrets exist.
 on:
-  push:
-    tags:
-      - "v*"
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 jobs:
   release:

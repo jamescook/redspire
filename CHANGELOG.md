@@ -7,10 +7,14 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-26
+
 ### Added
 
 - Native macOS SwiftUI launcher app wrapping the DOSBox setup: game-folder
   picker, fullscreen/memory/backend controls, and DOSBox-running detection.
+- Redguard support alongside Battlespire: GOG/Steam/disc-image install
+  flows, Glide-driver handling, and its own onboarding wizard.
 - First-run onboarding wizard with guided install flows for GOG, Steam, and
   manual/disc-image installs, in plain language rather than DOS-era jargon.
 - Automatic Steam install via `steamcmd`, as an alternative to the
@@ -28,7 +32,12 @@ and this project uses [Semantic Versioning](https://semver.org/).
   filename), so GOG, Steam, and manual installs all work regardless of what
   their CD image happens to be named.
 - Hover tooltips explaining the DOSBox backend and memory controls.
+- Desktop shortcuts for either game, via a signed stub app + Finder alias.
+- Self-heals missing external tools (dosbox-staging, steamcmd, innoextract,
+  unshield) with an inline "Install via Homebrew" button.
+- "Toggle Day/Night Mode" in the View menu.
 - `build.sh`: parameterized codesign + notarization pipeline; CI workflow
   plumbing for automated builds.
 
-[Unreleased]: https://github.com/jamescook/redspire/commits/main
+[Unreleased]: https://github.com/jamescook/redspire/compare/v1.0.0...main
+[1.0.0]: https://github.com/jamescook/redspire/releases/tag/v1.0.0
