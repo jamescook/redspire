@@ -21,6 +21,8 @@ struct ContentView: View {
     // nothing signals SwiftUI to recompute them. Bumping this on refocus
     // (e.g. after closing the wizard) forces that section to redraw fresh.
     @State private var refreshToken = UUID()
+    @State private var shortcutMessage: String?
+    @State private var shortcutMessageIsError = false
 
     private var backend: Backend {
         Backend(rawValue: backendRaw) ?? .staging
@@ -156,6 +158,18 @@ struct ContentView: View {
                 }
             }
 
+            HStack {
+                Button("Create Desktop Shortcut") { createDesktopShortcut() }
+                if let shortcutMessage {
+                    Label(
+                        shortcutMessage,
+                        systemImage: shortcutMessageIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
+                    )
+                        .foregroundStyle(shortcutMessageIsError ? .red : .green)
+                        .font(.caption)
+                }
+            }
+
             if let error = session.lastError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.red)
@@ -227,6 +241,17 @@ struct ContentView: View {
             fullscreen: fullscreen,
             memsizeMB: memsizeMB
         )
+    }
+
+    private func createDesktopShortcut() {
+        do {
+            _ = try DesktopShortcutCreator.createShortcut(for: .battlespire)
+            shortcutMessage = "Added to Desktop."
+            shortcutMessageIsError = false
+        } catch {
+            shortcutMessage = error.localizedDescription
+            shortcutMessageIsError = true
+        }
     }
 
     private func install() {

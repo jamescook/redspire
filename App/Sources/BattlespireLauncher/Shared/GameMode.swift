@@ -33,4 +33,37 @@ enum GameMode: String, CaseIterable, Identifiable {
         case .redguard: "redguard-scimitar.svg"
         }
     }
+
+    /// The UserDefaults keys each mode's own ContentView stores its launch
+    /// settings under (see ContentView/RedguardContentView's @AppStorage
+    /// declarations, and AppDefaultsReset's matching key list). Exposed here
+    /// so a trigger outside those Views -- a direct-launch URL from a
+    /// Desktop shortcut -- can read the same persisted settings without
+    /// instantiating the View. Adding a new mode means adding one case here;
+    /// everything downstream (GameLaunchSettings, direct-launch dispatch)
+    /// already works off this.
+    struct StorageKeys {
+        let gameDirectory: String
+        let cdImage: String
+        let fullscreen: String
+        let backend: String
+        let memsize: String
+        let defaultMemsizeMB: Int
+    }
+
+    var storageKeys: StorageKeys {
+        switch self {
+        case .battlespire:
+            return StorageKeys(
+                gameDirectory: "gameDirectoryPath", cdImage: "cdImagePath", fullscreen: "fullscreen",
+                backend: "backend", memsize: "memsizeMB", defaultMemsizeMB: 48
+            )
+        case .redguard:
+            return StorageKeys(
+                gameDirectory: "redguardGameDirectoryPath", cdImage: "redguardCdImagePath",
+                fullscreen: "redguardFullscreen", backend: "redguardBackend",
+                memsize: "redguardMemsizeMB", defaultMemsizeMB: 63
+            )
+        }
+    }
 }

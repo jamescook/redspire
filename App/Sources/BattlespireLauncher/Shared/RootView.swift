@@ -47,6 +47,10 @@ struct RootView: View {
                 showingResetConfirmation = true
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .requestDirectLaunch)) { notification in
+            guard let requestedMode = notification.object as? GameMode else { return }
+            directLaunch(mode: requestedMode)
+        }
         .alert("Reset to Defaults?", isPresented: $showingResetConfirmation) {
             Button("Reset", role: .destructive) {
                 AppDefaultsReset.reset()
@@ -63,6 +67,31 @@ struct RootView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text("Can't reset settings while a game is running.")
+        }
+    }
+
+    /// Entry point for a Desktop shortcut reopening the app (see
+    /// DesktopShortcutCreator/DirectLaunchURL): switches to that game's tab
+    /// and plays it with its own persisted settings, exactly as its Play
+    /// button would, then hides this window so the DOSBox window (already
+    /// launched by play()) is what the user actually sees.
+    private func directLaunch(mode requestedMode: GameMode) {
+        mode = requestedMode
+        modeStore.save(mode: requestedMode)
+
+        let settings = GameLaunchSettings.load(for: requestedMode)
+        let session: PlayableGameSession = requestedMode == .battlespire ? battlespireSession : redguardSession
+        session.play(
+            gameDir: settings.gameDirectoryPath, cdImagePathOverride: settings.cdImagePath,
+            backend: settings.backend, fullscreen: settings.fullscreen, memsizeMB: settings.memsizeMB
+        )
+
+        // Only hide the window once the session actually started -- if
+        // play() failed (e.g. this game's folder was never configured),
+        // the window must stay visible so the user can see why, instead of
+        // silently vanishing with no explanation.
+        if session.isRunning {
+            NSApp.keyWindow?.miniaturize(nil)
         }
     }
 

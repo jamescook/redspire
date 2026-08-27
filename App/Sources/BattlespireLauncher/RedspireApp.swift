@@ -5,6 +5,13 @@ extension Notification.Name {
     /// listens and shows the actual confirmation (menu commands can't
     /// present a SwiftUI .alert directly, they're not part of a View).
     static let requestResetToDefaults = Notification.Name("requestResetToDefaults")
+
+    /// Posted by the WindowGroup's .onOpenURL handler after parsing a
+    /// `redspire://launch/<mode>` URL (see DirectLaunchURL and
+    /// DesktopShortcutCreator); RootView listens and drives that mode's
+    /// session directly. The GameMode is passed as the notification's
+    /// object.
+    static let requestDirectLaunch = Notification.Name("requestDirectLaunch")
 }
 
 /// Ensures any in-flight child process (steamcmd, innoextract) gets killed
@@ -52,6 +59,17 @@ struct RedspireApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                // Fired by double-clicking a Desktop shortcut (a tiny stub
+                // app that just reopens this same app via this URL -- see
+                // DesktopShortcutCreator). Posting a notification rather
+                // than handling it here directly, since RootView owns the
+                // actual GameSession/RedguardGameSession instances this
+                // needs to drive.
+                .onOpenURL { url in
+                    if let mode = DirectLaunchURL.parse(url) {
+                        NotificationCenter.default.post(name: .requestDirectLaunch, object: mode)
+                    }
+                }
         }
         .windowResizability(.contentSize)
         // WindowGroup gets a "New Window" (Cmd+N) File menu command for
