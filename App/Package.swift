@@ -19,6 +19,7 @@ let package = Package(
                 .copy("Shared/Resources/Icons/redguard-scimitar.svg"),
                 .copy("Shared/Resources/Icons/steam-logo.svg"),
                 .copy("Shared/Resources/Icons/gog-logo.png"),
+                .copy("Shared/Resources/AppIcon.icns"),
             ]
         ),
         .testTarget(
