@@ -11,6 +11,8 @@ You need to own a legitimate copy of whichever game you want to play — GOG,
 Steam, or the original disc(s). This repo contains no game files or
 copyrighted assets, just the launcher app and setup instructions.
 
+![Redspire's Battlespire launcher window](assets/window.png)
+
 ## Getting started
 
 There's no pre-built download yet — see [Building from
