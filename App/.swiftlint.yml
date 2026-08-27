@@ -1,0 +1,37 @@
+excluded:
+  - .build
+  - dist
+
+disabled_rules:
+  # Precise POSIX terminology for PTY master/slave file descriptors
+  # (InteractiveProcessRunning.swift) -- renaming these would make the code
+  # *less* clear against the actual system API, not more inclusive.
+  - inclusive_language
+  # This codebase uses trailing commas in multi-line literals in several
+  # places; not worth churning existing files to satisfy one style.
+  - trailing_comma
+
+# Thresholds below are set to fit this codebase's actual, deliberate style
+# (long single-line SwiftUI modifier chains, descriptive user-facing error
+# strings, wide DI-heavy launch-argument functions) rather than forcing a
+# rewrite of working, already-tested code just to satisfy defaults tuned for
+# a different kind of project. New code should still try to stay well under
+# these -- they're a ceiling, not a target.
+
+line_length:
+  warning: 340
+
+identifier_name:
+  min_length:
+    warning: 1
+  max_length:
+    warning: 60
+
+function_parameter_count:
+  warning: 7
+
+type_body_length:
+  warning: 750
+
+file_length:
+  warning: 900

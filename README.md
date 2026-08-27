@@ -37,13 +37,14 @@ understand how DOSBox or these old installers work under the hood.
 ## Building from source
 
 ```
-brew install dosbox-staging innoextract unshield
+brew install dosbox-staging innoextract unshield swiftlint
 ```
 
 From the `App/` folder of this repository:
 
 ```
 swift test        # optional, confirms everything's working
+swiftlint lint     # optional, style/consistency checks (also runs in CI)
 ./build.sh
 open dist/Redspire.app
 ```

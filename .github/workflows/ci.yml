@@ -6,6 +6,16 @@ on:
   pull_request:
 
 jobs:
+  lint:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SwiftLint
+        run: brew install swiftlint
+      - name: swiftlint
+        working-directory: App
+        run: swiftlint lint --strict
+
   test:
     runs-on: macos-15
     steps:
