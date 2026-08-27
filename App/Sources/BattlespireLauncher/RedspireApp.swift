@@ -1,5 +1,12 @@
 import SwiftUI
 
+extension Notification.Name {
+    /// Posted by the File menu's "Reset to Defaults…" command; RootView
+    /// listens and shows the actual confirmation (menu commands can't
+    /// present a SwiftUI .alert directly, they're not part of a View).
+    static let requestResetToDefaults = Notification.Name("requestResetToDefaults")
+}
+
 /// Ensures any in-flight child process (steamcmd, innoextract) gets killed
 /// before the app actually quits -- without this, ⌘Q/Quit leaves them
 /// running as orphans (confirmed via `ps`; Foundation's Process doesn't do
@@ -50,9 +57,14 @@ struct RedspireApp: App {
         // WindowGroup gets a "New Window" (Cmd+N) File menu command for
         // free -- makes no sense here, a second window would just be a
         // disconnected duplicate of the same single-window launcher, not a
-        // useful new document/tab. Removing the whole "New Item" group.
+        // useful new document/tab. Replacing that slot with something
+        // actually useful instead.
         .commands {
-            CommandGroup(replacing: .newItem) {}
+            CommandGroup(replacing: .newItem) {
+                Button("Reset to Defaults…") {
+                    NotificationCenter.default.post(name: .requestResetToDefaults, object: nil)
+                }
+            }
         }
 
         // A genuinely separate window rather than a .sheet, so it doesn't

@@ -11,6 +11,9 @@ struct RootView: View {
     @StateObject private var battlespireSession = GameSession()
     @StateObject private var redguardSession = RedguardGameSession()
 
+    @State private var showingResetConfirmation = false
+    @State private var resetBlockedBySessionRunning = false
+
     init(modeStore: GameModeStore = UserDefaultsGameModeStore()) {
         self.modeStore = modeStore
         _mode = State(initialValue: modeStore.loadMode())
@@ -37,6 +40,27 @@ struct RootView: View {
         // heading visibly jumps up/down depending which tab you're on. This
         // pins content flush under the divider regardless of window height.
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .onReceive(NotificationCenter.default.publisher(for: .requestResetToDefaults)) { _ in
+            if isSessionRunning {
+                resetBlockedBySessionRunning = true
+            } else {
+                showingResetConfirmation = true
+            }
+        }
+        .alert("Reset to Defaults?", isPresented: $showingResetConfirmation) {
+            Button("Reset", role: .destructive) {
+                AppDefaultsReset.reset()
+                mode = .battlespire
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This clears both games' saved folders, settings, and any remembered Steam password. It does not delete any installed game files.")
+        }
+        .alert("Quit the running game first", isPresented: $resetBlockedBySessionRunning) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Can't reset settings while a game is running.")
+        }
     }
 
     @ViewBuilder
