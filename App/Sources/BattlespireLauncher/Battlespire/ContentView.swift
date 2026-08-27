@@ -41,8 +41,14 @@ struct ContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Battlespire Launcher")
-                .font(.title2).bold()
+            HStack(spacing: 10) {
+                BrandIcon.image(fileName: GameMode.battlespire.iconFileName, systemImageFallback: GameMode.battlespire.systemImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 32, height: 32)
+                Text("Battlespire Launcher")
+                    .font(.title2).bold()
+            }
 
             GroupBox("Game Folder") {
                 HStack {

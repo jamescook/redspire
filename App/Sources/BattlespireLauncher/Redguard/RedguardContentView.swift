@@ -22,8 +22,14 @@ struct RedguardContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Redguard Launcher")
-                .font(.title2).bold()
+            HStack(spacing: 10) {
+                BrandIcon.image(fileName: GameMode.redguard.iconFileName, systemImageFallback: GameMode.redguard.systemImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 32, height: 32)
+                Text("Redguard Launcher")
+                    .font(.title2).bold()
+            }
 
             GroupBox("Game Folder") {
                 HStack {

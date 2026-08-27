@@ -47,12 +47,7 @@ struct RootView: View {
         HStack(spacing: 6) {
             Picker("Game", selection: $mode) {
                 ForEach(GameMode.allCases) { m in
-                    Label {
-                        Text(m.displayName)
-                    } icon: {
-                        BrandIcon.image(fileName: m.iconFileName, systemImageFallback: m.systemImage)
-                    }
-                    .tag(m)
+                    Text(m.displayName).tag(m)
                 }
             }
             .pickerStyle(.segmented)
