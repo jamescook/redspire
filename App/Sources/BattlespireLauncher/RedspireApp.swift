@@ -47,6 +47,13 @@ struct RedspireApp: App {
             RootView()
         }
         .windowResizability(.contentSize)
+        // WindowGroup gets a "New Window" (Cmd+N) File menu command for
+        // free -- makes no sense here, a second window would just be a
+        // disconnected duplicate of the same single-window launcher, not a
+        // useful new document/tab. Removing the whole "New Item" group.
+        .commands {
+            CommandGroup(replacing: .newItem) {}
+        }
 
         // A genuinely separate window rather than a .sheet, so it doesn't
         // compete with system panels (Passwords, AutoFill providers) for
