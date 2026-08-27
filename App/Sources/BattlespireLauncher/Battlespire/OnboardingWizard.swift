@@ -48,6 +48,10 @@ struct OnboardingWizard: View {
     @State private var manualExtracting = false
     @State private var manualErrorMessage: String?
     @State private var manualPatchApplySuccessMessage: String?
+    // Bumped when MissingHomebrewToolView finishes installing a tool -- a
+    // @State change here forces this struct's body (and so whichever
+    // `if <tool>.isInstalled` branch below) to re-evaluate.
+    @State private var toolRefreshToken = UUID()
     private let credentialStore: CredentialStore = KeychainCredentialStore()
     @StateObject private var gogInstaller = GogInstaller()
     @StateObject private var steamCMDSession = SteamCMDSession()
@@ -485,7 +489,8 @@ struct OnboardingWizard: View {
                 MissingHomebrewToolView(
                     toolName: "steamcmd",
                     reason: "it can download the game files directly, without installing the full Steam client",
-                    formula: "steamcmd"
+                    formula: "steamcmd",
+                    onInstalled: { toolRefreshToken = UUID() }
                 )
             } else {
                 Text(
@@ -537,7 +542,8 @@ struct OnboardingWizard: View {
                 MissingHomebrewToolView(
                     toolName: "steamcmd",
                     reason: "it can download the game files directly, without installing the full Steam client",
-                    formula: "steamcmd"
+                    formula: "steamcmd",
+                    onInstalled: { toolRefreshToken = UUID() }
                 )
             } else if steamCMDSession.stage != nil {
                 steamCMDSessionView
@@ -819,7 +825,8 @@ struct OnboardingWizard: View {
         MissingHomebrewToolView(
             toolName: "innoextract",
             reason: "it's needed to unpack the GOG installer without running it",
-            formula: "innoextract"
+            formula: "innoextract",
+            onInstalled: { toolRefreshToken = UUID() }
         )
     }
 

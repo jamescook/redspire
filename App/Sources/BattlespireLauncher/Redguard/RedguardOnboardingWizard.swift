@@ -39,6 +39,10 @@ struct RedguardOnboardingWizard: View {
     @State private var savedAccounts: [String] = []
     @State private var selectedSavedAccount: String?
     @State private var savedPasswordUnavailable = false
+    // Bumped when MissingHomebrewToolView finishes installing a tool -- a
+    // @State change here forces this struct's body (and so whichever
+    // `if <tool>.isInstalled` branch below) to re-evaluate.
+    @State private var toolRefreshToken = UUID()
     private let credentialStore: CredentialStore = KeychainCredentialStore()
     @StateObject private var gogInstaller = RedguardGogInstaller()
     @StateObject private var discInstaller = RedguardDiscImageInstaller()
@@ -292,7 +296,8 @@ struct RedguardOnboardingWizard: View {
                 MissingHomebrewToolView(
                     toolName: "steamcmd",
                     reason: "it can download the game files directly, without installing the full Steam client",
-                    formula: "steamcmd"
+                    formula: "steamcmd",
+                    onInstalled: { toolRefreshToken = UUID() }
                 )
             } else {
                 Text(
@@ -344,7 +349,8 @@ struct RedguardOnboardingWizard: View {
                 MissingHomebrewToolView(
                     toolName: "steamcmd",
                     reason: "it can download the game files directly, without installing the full Steam client",
-                    formula: "steamcmd"
+                    formula: "steamcmd",
+                    onInstalled: { toolRefreshToken = UUID() }
                 )
             } else if steamCMDSession.stage != nil {
                 steamCMDSessionView
@@ -595,7 +601,8 @@ struct RedguardOnboardingWizard: View {
             MissingHomebrewToolView(
                 toolName: "innoextract",
                 reason: "it's needed to unpack the GOG installer without running it",
-                formula: "innoextract"
+                formula: "innoextract",
+                onInstalled: { toolRefreshToken = UUID() }
             )
         } else {
             VStack(alignment: .leading, spacing: 12) {
@@ -676,7 +683,8 @@ struct RedguardOnboardingWizard: View {
                 toolName: "unshield",
                 reason: "the retail disc's installer is an InstallShield package that needs it to unpack without "
                     + "running Windows",
-                formula: "unshield"
+                formula: "unshield",
+                onInstalled: { toolRefreshToken = UUID() }
             )
         } else {
             VStack(alignment: .leading, spacing: 12) {

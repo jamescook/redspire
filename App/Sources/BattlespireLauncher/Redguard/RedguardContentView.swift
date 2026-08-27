@@ -15,6 +15,9 @@ struct RedguardContentView: View {
 
     @ObservedObject var session: RedguardGameSession
     @Environment(\.openWindow) private var openWindow
+    @State private var installer = BrewInstaller()
+    @State private var isInstalling = false
+    @State private var installLog = ""
     // installLooksComplete reads files on disk directly, but SwiftUI only
     // re-renders when a tracked @State/@AppStorage value actually *changes*
     // -- if the wizard finishes an install without gameDirectoryPath's
@@ -97,12 +100,29 @@ struct RedguardContentView: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
 
-                    if backend.isInstalled {
-                        Label("\(backend.displayName) installed", systemImage: "checkmark.circle")
-                            .foregroundStyle(.green)
-                    } else {
-                        Label("\(backend.displayName) not found", systemImage: "xmark.circle")
-                            .foregroundStyle(.red)
+                    HStack {
+                        if backend.isInstalled {
+                            Label("\(backend.displayName) installed", systemImage: "checkmark.circle")
+                                .foregroundStyle(.green)
+                        } else {
+                            Label("\(backend.displayName) not found", systemImage: "xmark.circle")
+                                .foregroundStyle(.red)
+                            Spacer()
+                            if backend == .staging, Backend.brewPath != nil {
+                                Button(isInstalling ? "Installing…" : "Install via Homebrew") {
+                                    install()
+                                }
+                                .disabled(isInstalling)
+                            } else {
+                                Button("Installation Instructions") {
+                                    NSWorkspace.shared.open(URL(string: "https://brew.sh")!)
+                                }
+                            }
+                        }
+                    }
+
+                    if !installLog.isEmpty {
+                        LogScrollView(text: installLog, height: 80)
                     }
 
                     Toggle("Fullscreen", isOn: $fullscreen)
@@ -201,6 +221,19 @@ struct RedguardContentView: View {
             fullscreen: fullscreen,
             memsizeMB: memsizeMB
         )
+    }
+
+    private func install() {
+        isInstalling = true
+        installLog = ""
+        installer.install(formula: "dosbox-staging", onOutput: { line in
+            Task { @MainActor in installLog += line }
+        }, onComplete: { success in
+            Task { @MainActor in
+                isInstalling = false
+                installLog += success ? "\nDone.\n" : "\nInstall failed — see output above.\n"
+            }
+        })
     }
 
     private func createDesktopShortcut() {
