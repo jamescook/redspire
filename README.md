@@ -28,7 +28,7 @@ Once it's open:
 
 1. Pick **Battlespire** or **Redguard** at the top of the window.
 2. Click **Setup Wizard…** and tell it how you have the game:
-   - **GOG** — point it at the installer you downloaded; it unpacks it for you.
+   - **GOG** — point it at the offline installer you downloaded; it unpacks it for you.
    - **Steam** — it can detect an install you already have, or download the
      game for you if you give it your Steam login (nothing leaves your Mac).
    - **The original disc(s)** — point it at a disc image and it extracts and
