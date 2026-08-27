@@ -15,7 +15,9 @@ enum AppDefaultsReset {
         "selectedGameMode",
     ]
 
-    static func reset(defaults: UserDefaults = .standard, credentialStore: CredentialStore = KeychainCredentialStore()) {
+    static func reset(
+        defaults: UserDefaults = .standard, credentialStore: CredentialStore = KeychainCredentialStore()
+    ) {
         for key in userDefaultsKeys {
             defaults.removeObject(forKey: key)
         }

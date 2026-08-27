@@ -54,7 +54,10 @@ struct RootView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This clears both games' saved folders, settings, and any remembered Steam password. It does not delete any installed game files.")
+            Text(
+                "This clears both games' saved folders, settings, and any remembered Steam password. It does "
+                    + "not delete any installed game files."
+            )
         }
         .alert("Quit the running game first", isPresented: $resetBlockedBySessionRunning) {
             Button("OK", role: .cancel) {}

@@ -12,11 +12,13 @@ enum RedguardSessionError: LocalizedError {
         case .backendNotInstalled(let backend):
             return "\(backend.displayName) isn't installed. Run: \(backend.installHint)"
         case .redguardExeNotFound(let dir):
-            return "REDGUARD.EXE not found in \(dir)/Redguard. Point at the folder that contains the Redguard subfolder directly."
+            return "REDGUARD.EXE not found in \(dir)/Redguard. Point at the folder that contains the Redguard "
+                + "subfolder directly."
         case .rgfxExeNotFound(let dir):
             return "RGFX.EXE (the game's renderer) not found in \(dir)/Redguard. Try reinstalling via the Setup Wizard."
         case .cdImageNotFound:
-            return "This game also needs its second disc (for videos and music) to play. Add it under \"Second Disc\" above, then try again."
+            return "This game also needs its second disc (for videos and music) to play. Add it under "
+                + "\"Second Disc\" above, then try again."
         case .confResourceMissing:
             return "Couldn't find this app's bundled DOSBox settings (redguard.conf). Try reinstalling the app."
         }
@@ -43,7 +45,9 @@ final class RedguardGameSession: ObservableObject {
     /// user's own ambient dosbox-staging.conf -- a real regression found
     /// live: cycles left over from Battlespire-specific tuning elsewhere in
     /// that same ambient config starved Redguard's much heavier rendering.
-    nonisolated static func buildArguments(gameDir: String, cdImage: String, backend: Backend, fullscreen: Bool, memsizeMB: Int, confPath: String?) -> [String] {
+    nonisolated static func buildArguments(
+        gameDir: String, cdImage: String, backend: Backend, fullscreen: Bool, memsizeMB: Int, confPath: String?
+    ) -> [String] {
         var args: [String] = []
         if let confPath {
             args += ["-conf", confPath]
@@ -102,7 +106,10 @@ final class RedguardGameSession: ObservableObject {
             return
         }
 
-        let args = RedguardGameSession.buildArguments(gameDir: gameDir, cdImage: cdImage, backend: backend, fullscreen: fullscreen, memsizeMB: memsizeMB, confPath: confPath)
+        let args = RedguardGameSession.buildArguments(
+            gameDir: gameDir, cdImage: cdImage, backend: backend, fullscreen: fullscreen,
+            memsizeMB: memsizeMB, confPath: confPath
+        )
 
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: exe)

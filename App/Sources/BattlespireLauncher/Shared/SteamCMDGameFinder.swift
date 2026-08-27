@@ -6,11 +6,15 @@ import Foundation
 /// this doesn't assume a fixed nesting depth. Shared between Battlespire's
 /// and Redguard's steamcmd installers.
 enum SteamCMDGameFinder {
-    static func findInstalledGameDir(exeRelativePath: String, root: URL, fileManager: FileManager = .default) -> String? {
+    static func findInstalledGameDir(
+        exeRelativePath: String, root: URL, fileManager: FileManager = .default
+    ) -> String? {
         if fileManager.fileExists(atPath: root.appendingPathComponent(exeRelativePath).path) {
             return root.path
         }
-        guard let children = try? fileManager.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey]) else {
+        guard let children = try? fileManager.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: [.isDirectoryKey]
+        ) else {
             return nil
         }
         for child in children {

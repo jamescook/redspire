@@ -11,22 +11,19 @@ disabled_rules:
   # places; not worth churning existing files to satisfy one style.
   - trailing_comma
 
-# Thresholds below are set to fit this codebase's actual, deliberate style
-# (long single-line SwiftUI modifier chains, descriptive user-facing error
-# strings, wide DI-heavy launch-argument functions) rather than forcing a
-# rewrite of working, already-tested code just to satisfy defaults tuned for
-# a different kind of project. New code should still try to stay well under
-# these -- they're a ceiling, not a target.
-
-line_length:
-  warning: 340
-
-identifier_name:
-  min_length:
-    warning: 1
-  max_length:
-    warning: 60
-
+# Thresholds below are deliberate exceptions, not laziness -- line_length
+# and identifier_name are back to SwiftLint's real defaults (Sources/ and
+# Tests/Redguard, Tests/Battlespire, Tests/Shared are all clean against
+# them). What's left loosened:
+#
+# - function_parameter_count: the DI-heavy launch-argument functions
+#   (GameSession.buildArguments, RedguardGameSession.buildArguments) take
+#   6 params by design -- splitting them into a parameter struct wouldn't
+#   improve anything, just add indirection.
+# - type_body_length / file_length: OnboardingWizard.swift and
+#   RedguardOnboardingWizard.swift are large SwiftUI wizard views (~800
+#   lines each). Splitting them into subviews is a real, separate refactor,
+#   not a lint-compliance fix.
 function_parameter_count:
   warning: 7
 

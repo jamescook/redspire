@@ -21,7 +21,10 @@ struct MissingHomebrewToolView: View {
                     .background(Color.gray.opacity(0.15))
                     .cornerRadius(4)
             } else {
-                Text("Homebrew isn't installed either. Install it from brew.sh first, then run: brew install \(formula)")
+                Text(
+                    "Homebrew isn't installed either. Install it from brew.sh first, then run: "
+                        + "brew install \(formula)"
+                )
                     .font(.caption).foregroundStyle(.secondary)
                 Button("Open brew.sh") {
                     NSWorkspace.shared.open(URL(string: "https://brew.sh")!)

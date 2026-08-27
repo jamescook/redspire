@@ -41,7 +41,9 @@ enum DiscImageInstaller {
     /// everything baked in, which is why only the raw-disc path needs any
     /// of this. MSS itself also sits as a sibling of the batspire/ folder
     /// rather than inside it on the disc, so that gets copied in too.
-    static func extractGameFiles(fromISO isoPath: String, runner: ProcessRunning = SystemProcessRunner()) throws -> String {
+    static func extractGameFiles(
+        fromISO isoPath: String, runner: ProcessRunning = SystemProcessRunner()
+    ) throws -> String {
         let mountPoint = try DiscMounter.mount(isoPath, runner: runner)
         defer { DiscMounter.unmount(mountPoint, runner: runner) }
 
@@ -60,7 +62,9 @@ enum DiscImageInstaller {
     /// Copies MSS in from a sibling of the found game folder if it's missing
     /// (and present there), then writes the bundled SPIRE.CFG and
     /// MSS/DIG.INI templates for whichever of those are still missing.
-    static func fillInMissingSupportFiles(gameDir: String, mountRoot: String, fileManager: FileManager = .default) throws {
+    static func fillInMissingSupportFiles(
+        gameDir: String, mountRoot: String, fileManager: FileManager = .default
+    ) throws {
         if resolveActualName(in: gameDir, matching: "MSS", fileManager: fileManager) == nil,
            let mssName = resolveActualName(in: mountRoot, matching: "MSS", fileManager: fileManager) {
             let src = (mountRoot as NSString).appendingPathComponent(mssName)
@@ -79,7 +83,9 @@ enum DiscImageInstaller {
         }
     }
 
-    private static func writeBundledTemplateIfMissing(named name: String, into dir: String, fileManager: FileManager) throws {
+    private static func writeBundledTemplateIfMissing(
+        named name: String, into dir: String, fileManager: FileManager
+    ) throws {
         guard resolveActualName(in: dir, matching: name, fileManager: fileManager) == nil else { return }
         guard let templateURL = BundledResource.url(named: name, fileManager: fileManager) else {
             throw ExtractError.gameFilesNotFound
@@ -113,7 +119,9 @@ enum DiscImageInstaller {
     }
 
     /// Pure: the on-disk name matching `name` case-insensitively, if any.
-    static func resolveActualName(in dir: String, matching name: String, fileManager: FileManager = .default) -> String? {
+    static func resolveActualName(
+        in dir: String, matching name: String, fileManager: FileManager = .default
+    ) -> String? {
         CaseInsensitiveFileLookup.resolveActualName(in: dir, matching: name, fileManager: fileManager)
     }
 

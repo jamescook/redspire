@@ -14,7 +14,8 @@ enum GameSessionError: LocalizedError {
         case .gameExeNotFound(let dir):
             return "GAME.EXE not found in \(dir). Point at the folder that contains it directly."
         case .cdImageNotFound(let dir):
-            return "Couldn't find the game's music file (.ins/.cue/.iso) in \(dir). Pick one manually below if it's named unusually."
+            return "Couldn't find the game's music file (.ins/.cue/.iso) in \(dir). Pick one manually below "
+                + "if it's named unusually."
         case .confResourceMissing:
             return "Couldn't find this app's bundled DOSBox settings (battlespire.conf). Try reinstalling the app."
         }
@@ -35,7 +36,9 @@ final class GameSession: ObservableObject {
     /// via -conf so the launch never silently depends on the user's own
     /// ambient dosbox-staging.conf -- see RedguardGameSession's identical
     /// parameter for the regression that motivated this.
-    nonisolated static func buildArguments(gameDir: String, cdImage: String, backend: Backend, fullscreen: Bool, memsizeMB: Int, confPath: String?) -> [String] {
+    nonisolated static func buildArguments(
+        gameDir: String, cdImage: String, backend: Backend, fullscreen: Bool, memsizeMB: Int, confPath: String?
+    ) -> [String] {
         var args: [String] = []
         if let confPath {
             args += ["-conf", confPath]
@@ -88,7 +91,14 @@ final class GameSession: ObservableObject {
             return
         }
 
-        let args = GameSession.buildArguments(gameDir: gameDir, cdImage: cdImage, backend: backend, fullscreen: fullscreen, memsizeMB: memsizeMB, confPath: confPath)
+        let args = GameSession.buildArguments(
+            gameDir: gameDir,
+            cdImage: cdImage,
+            backend: backend,
+            fullscreen: fullscreen,
+            memsizeMB: memsizeMB,
+            confPath: confPath
+        )
 
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: exe)

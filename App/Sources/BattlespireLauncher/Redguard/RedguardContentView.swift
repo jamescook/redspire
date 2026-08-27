@@ -34,7 +34,10 @@ struct RedguardContentView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
-                BrandIcon.image(fileName: GameMode.redguard.iconFileName, systemImageFallback: GameMode.redguard.systemImage)
+                BrandIcon.image(
+                    fileName: GameMode.redguard.iconFileName,
+                    systemImageFallback: GameMode.redguard.systemImage
+                )
                     .resizable()
                     .scaledToFit()
                     .frame(width: 32, height: 32)

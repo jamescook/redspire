@@ -10,7 +10,9 @@ enum SteamDetector {
         homeDirectory: String = FileManager.default.homeDirectoryForCurrentUser.path,
         fileProvider: FileProviding = RealFileProvider()
     ) -> String? {
-        SteamGameDetector.findGameDirectory(appID: appID, exeRelativePath: "GAME.EXE", homeDirectory: homeDirectory, fileProvider: fileProvider)
+        SteamGameDetector.findGameDirectory(
+            appID: appID, exeRelativePath: "GAME.EXE", homeDirectory: homeDirectory, fileProvider: fileProvider
+        )
     }
 
     static func libraryPaths(fromVDFText text: String) -> [String] {

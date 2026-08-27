@@ -20,6 +20,8 @@ enum RedguardSteamCMDInstaller {
     }
 
     static func findInstalledGameDir(root: URL = installDestination, fileManager: FileManager = .default) -> String? {
-        SteamCMDGameFinder.findInstalledGameDir(exeRelativePath: "Redguard/REDGUARD.EXE", root: root, fileManager: fileManager)
+        SteamCMDGameFinder.findInstalledGameDir(
+            exeRelativePath: "Redguard/REDGUARD.EXE", root: root, fileManager: fileManager
+        )
     }
 }

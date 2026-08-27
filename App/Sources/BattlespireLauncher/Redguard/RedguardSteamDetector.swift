@@ -11,6 +11,11 @@ enum RedguardSteamDetector {
         homeDirectory: String = FileManager.default.homeDirectoryForCurrentUser.path,
         fileProvider: FileProviding = RealFileProvider()
     ) -> String? {
-        SteamGameDetector.findGameDirectory(appID: appID, exeRelativePath: "Redguard/REDGUARD.EXE", homeDirectory: homeDirectory, fileProvider: fileProvider)
+        SteamGameDetector.findGameDirectory(
+            appID: appID,
+            exeRelativePath: "Redguard/REDGUARD.EXE",
+            homeDirectory: homeDirectory,
+            fileProvider: fileProvider
+        )
     }
 }

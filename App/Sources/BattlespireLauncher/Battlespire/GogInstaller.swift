@@ -46,18 +46,27 @@ final class GogInstaller: ObservableObject {
     nonisolated static func rejectionMessage(installerIsValidInno: Bool, sizeMB: Double) -> String? {
         guard !installerIsValidInno else { return nil }
         if sizeMB < 10 {
-            return "This looks like GOG's small Galaxy web-installer (\(String(format: "%.1f", sizeMB)) MB), not the offline installer. On the GOG download page, look for an \"offline backup installer\" link (sometimes under a dropdown near the main download button) and use that setup_*.exe instead — it should be several hundred MB."
+            let size = String(format: "%.1f", sizeMB)
+            return "This looks like GOG's small Galaxy web-installer (\(size) MB), not the offline installer. "
+                + "On the GOG download page, look for an \"offline backup installer\" link (sometimes under a "
+                + "dropdown near the main download button) and use that setup_*.exe instead — it should be "
+                + "several hundred MB."
         }
         return "This doesn't look like a GOG Inno Setup installer innoextract can read."
     }
 
     /// Pure mapping from the extraction outcome to the resulting UI stage.
-    nonisolated static func resolveStage(exitCode: Int32, gameExeExists: Bool, versionString: String?, hashVerified: Bool, gameDir: String) -> GogInstallStage {
+    nonisolated static func resolveStage(
+        exitCode: Int32, gameExeExists: Bool, versionString: String?, hashVerified: Bool, gameDir: String
+    ) -> GogInstallStage {
         guard exitCode == 0 else {
             return .failed("innoextract exited with status \(exitCode). See log above.")
         }
         guard gameExeExists else {
-            return .failed("Extraction finished, but GAME.EXE wasn't found at the expected location. This installer's layout may differ from the version this app was tested against.")
+            return .failed(
+                "Extraction finished, but GAME.EXE wasn't found at the expected location. This installer's "
+                    + "layout may differ from the version this app was tested against."
+            )
         }
         guard GameVersion.isV15(versionString) else {
             let found = versionString ?? "no version string found"

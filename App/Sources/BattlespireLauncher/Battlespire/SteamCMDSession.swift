@@ -53,7 +53,9 @@ final class SteamCMDSession: ObservableObject {
     /// Pure mapping from the process outcome to the resulting UI stage.
     /// `exeLabel` names whichever file's absence means the install didn't
     /// really finish -- GAME.EXE for Battlespire, REDGUARD.EXE for Redguard.
-    nonisolated static func resolveStage(exitCode: Int32, foundGameDir: String?, exeLabel: String = "GAME.EXE") -> SteamCMDStage {
+    nonisolated static func resolveStage(
+        exitCode: Int32, foundGameDir: String?, exeLabel: String = "GAME.EXE"
+    ) -> SteamCMDStage {
         guard exitCode == 0 else {
             return .failed("steamcmd exited with status \(exitCode). See log above.")
         }

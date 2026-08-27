@@ -30,7 +30,8 @@ struct ContentView: View {
         guard !gameDirectoryPath.isEmpty else { return nil }
         let exe = (gameDirectoryPath as NSString).appendingPathComponent("GAME.EXE")
         guard let version = GameVersion.detect(gameExePath: exe) else { return nil }
-        return GameVersion.isV15(version) ? nil : "Detected \(version) — v1.3 is known-broken under DOSBox. See README for the v1.5 patch."
+        return GameVersion.isV15(version) ? nil
+            : "Detected \(version) — v1.3 is known-broken under DOSBox. See README for the v1.5 patch."
     }
 
     private var verifiedBuildBadge: Bool {
@@ -42,7 +43,10 @@ struct ContentView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 10) {
-                BrandIcon.image(fileName: GameMode.battlespire.iconFileName, systemImageFallback: GameMode.battlespire.systemImage)
+                BrandIcon.image(
+                    fileName: GameMode.battlespire.iconFileName,
+                    systemImageFallback: GameMode.battlespire.systemImage
+                )
                     .resizable()
                     .scaledToFit()
                     .frame(width: 32, height: 32)
@@ -81,7 +85,11 @@ struct ContentView: View {
 
             GroupBox("Music") {
                 HStack {
-                    Text(cdImagePath.isEmpty ? "Found automatically in the game folder -- you shouldn't need to touch this" : cdImagePath)
+                    Text(
+                        cdImagePath.isEmpty
+                            ? "Found automatically in the game folder -- you shouldn't need to touch this"
+                            : cdImagePath
+                    )
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .foregroundStyle(.secondary)
@@ -97,7 +105,11 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 4) {
                         Text("Backend").font(.subheadline).foregroundStyle(.secondary)
-                        InfoTooltip(text: "dosbox-staging: actively maintained and correctly detects this game's video mode — recommended. dosbox-x: an alternative build with more emulation options; try it if staging doesn't work for you.")
+                        InfoTooltip(
+                            text: "dosbox-staging: actively maintained and correctly detects this game's video "
+                                + "mode — recommended. dosbox-x: an alternative build with more emulation "
+                                + "options; try it if staging doesn't work for you."
+                        )
                     }
                     Picker("Backend", selection: $backendRaw) {
                         ForEach(Backend.allCases) { candidate in
@@ -136,7 +148,10 @@ struct ContentView: View {
 
                     HStack(spacing: 4) {
                         Stepper("Memory: \(memsizeMB) MB", value: $memsizeMB, in: 16...256, step: 16)
-                        InfoTooltip(text: "Emulated RAM for the DOS session. 48MB matches what Battlespire expects — raising it rarely helps and can occasionally confuse older DOS software.")
+                        InfoTooltip(
+                            text: "Emulated RAM for the DOS session. 48MB matches what Battlespire expects — "
+                                + "raising it rarely helps and can occasionally confuse older DOS software."
+                        )
                     }
                 }
             }
@@ -194,7 +209,9 @@ struct ContentView: View {
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = [UTType(filenameExtension: "iso"), UTType(filenameExtension: "ins")].compactMap { $0 }
+        panel.allowedContentTypes = [
+            UTType(filenameExtension: "iso"), UTType(filenameExtension: "ins")
+        ].compactMap { $0 }
         panel.prompt = "Select"
         panel.message = "Select the game's music file (.iso / .ins)"
         if panel.runModal() == .OK, let url = panel.url {

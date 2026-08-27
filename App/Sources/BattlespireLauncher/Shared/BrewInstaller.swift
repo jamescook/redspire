@@ -12,7 +12,11 @@ final class BrewInstaller {
         self.brewPath = brewPath
     }
 
-    func install(formula: String, onOutput: @escaping @Sendable (String) -> Void, onComplete: @escaping @Sendable (Bool) -> Void) {
+    func install(
+        formula: String,
+        onOutput: @escaping @Sendable (String) -> Void,
+        onComplete: @escaping @Sendable (Bool) -> Void
+    ) {
         guard let brew = brewPath() else {
             onOutput("Homebrew not found.\n")
             onComplete(false)

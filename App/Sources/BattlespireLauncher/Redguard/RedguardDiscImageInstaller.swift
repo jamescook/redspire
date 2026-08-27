@@ -67,7 +67,9 @@ final class RedguardDiscImageInstaller: ObservableObject {
     }
 
     /// Pure mapping from the unshield outcome to the resulting stage.
-    nonisolated static func resolveStage(exitCode: Int32, redguardExeExists: Bool, rgfxExeExists: Bool, hasGlideDriver: Bool, gameDir: String) -> RedguardDiscInstallStage {
+    nonisolated static func resolveStage(
+        exitCode: Int32, redguardExeExists: Bool, rgfxExeExists: Bool, hasGlideDriver: Bool, gameDir: String
+    ) -> RedguardDiscInstallStage {
         guard exitCode == 0 else {
             return .failed("unshield exited with status \(exitCode). See log above.")
         }
@@ -99,7 +101,9 @@ final class RedguardDiscImageInstaller: ObservableObject {
 
         guard let cabName = Self.findDataCab(atMountRoot: mountPoint) else {
             DiscMounter.unmount(mountPoint, runner: runner)
-            stage = .failed("Couldn't find DATA1.CAB inside that disc image -- this doesn't look like the Redguard install disc.")
+            stage = .failed(
+                "Couldn't find DATA1.CAB inside that disc image -- this doesn't look like the Redguard install disc."
+            )
             return
         }
         let cabPath = (mountPoint as NSString).appendingPathComponent(cabName)
@@ -173,7 +177,13 @@ final class RedguardDiscImageInstaller: ObservableObject {
         // as C: and does `cd redguard` itself, matching RedguardGogInstaller's
         // same convention (its own gameDir is the folder containing Redguard/,
         // not Redguard/ itself).
-        stage = Self.resolveStage(exitCode: exitCode, redguardExeExists: exeExists, rgfxExeExists: rgfxExists, hasGlideDriver: hasGlide, gameDir: dest.path)
+        stage = Self.resolveStage(
+            exitCode: exitCode,
+            redguardExeExists: exeExists,
+            rgfxExeExists: rgfxExists,
+            hasGlideDriver: hasGlide,
+            gameDir: dest.path
+        )
     }
 
     private func mergeExtractedFiles(commonFiles: URL, fxart: URL, mountPoint: String, into redguardDir: URL) throws {
@@ -181,7 +191,10 @@ final class RedguardDiscImageInstaller: ObservableObject {
         try? fileManager.removeItem(at: redguardDir)
         try fileManager.createDirectory(at: redguardDir, withIntermediateDirectories: true)
         for item in try fileManager.contentsOfDirectory(atPath: commonFiles.path) {
-            try? fileManager.copyItem(atPath: commonFiles.appendingPathComponent(item).path, toPath: redguardDir.appendingPathComponent(item).path)
+            try? fileManager.copyItem(
+                atPath: commonFiles.appendingPathComponent(item).path,
+                toPath: redguardDir.appendingPathComponent(item).path
+            )
         }
         if fileManager.fileExists(atPath: fxart.path) {
             try? fileManager.copyItem(at: fxart, to: redguardDir.appendingPathComponent("fxart"))
@@ -189,7 +202,9 @@ final class RedguardDiscImageInstaller: ObservableObject {
         // RGFX.EXE (the Glide-accelerated renderer this app actually
         // launches) lives at the disc root, not inside DATA1.CAB -- unshield
         // never sees it. Confirmed byte-identical to GOG's own copy of it.
-        if let rgfxName = CaseInsensitiveFileLookup.resolveActualName(in: mountPoint, matching: "RGFX.EXE", fileManager: fileManager) {
+        if let rgfxName = CaseInsensitiveFileLookup.resolveActualName(
+            in: mountPoint, matching: "RGFX.EXE", fileManager: fileManager
+        ) {
             try? fileManager.copyItem(
                 atPath: (mountPoint as NSString).appendingPathComponent(rgfxName),
                 toPath: redguardDir.appendingPathComponent("RGFX.EXE").path

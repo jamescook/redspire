@@ -40,12 +40,17 @@ final class RedguardGogInstaller: ObservableObject {
     }
 
     /// Pure mapping from the extraction outcome to the resulting UI stage.
-    nonisolated static func resolveStage(exitCode: Int32, redguardExeExists: Bool, gameDir: String) -> RedguardGogInstallStage {
+    nonisolated static func resolveStage(
+        exitCode: Int32, redguardExeExists: Bool, gameDir: String
+    ) -> RedguardGogInstallStage {
         guard exitCode == 0 else {
             return .failed("innoextract exited with status \(exitCode). See log above.")
         }
         guard redguardExeExists else {
-            return .failed("Extraction finished, but REDGUARD.EXE wasn't found at the expected location. This installer's layout may differ from the version this app was tested against.")
+            return .failed(
+                "Extraction finished, but REDGUARD.EXE wasn't found at the expected location. This installer's "
+                    + "layout may differ from the version this app was tested against."
+            )
         }
         return .done(gameDir: gameDir)
     }

@@ -43,7 +43,8 @@ enum PatchApplier {
         if isDirectory.boolValue {
             searchRoot = path
         } else {
-            let scratchDir = fileManager.temporaryDirectory.appendingPathComponent("BattlespirePatch-\(UUID().uuidString)")
+            let scratchDir = fileManager.temporaryDirectory
+                .appendingPathComponent("BattlespirePatch-\(UUID().uuidString)")
             scratchDirToClean = scratchDir
             try fileManager.createDirectory(at: scratchDir, withIntermediateDirectories: true)
 
@@ -67,7 +68,9 @@ enum PatchApplier {
     /// that silently was the actual bug here -- resolve real on-disk names
     /// explicitly instead of assuming they match our casing.
     static func apply(patchDir: String, toGameDir gameDir: String, fileManager: FileManager = .default) throws {
-        guard let exeName = DiscImageInstaller.resolveActualName(in: patchDir, matching: "GAME.EXE", fileManager: fileManager) else {
+        guard let exeName = DiscImageInstaller.resolveActualName(
+            in: patchDir, matching: "GAME.EXE", fileManager: fileManager
+        ) else {
             throw ApplyError.patchFilesNotFound
         }
         let patchExe = (patchDir as NSString).appendingPathComponent(exeName)
@@ -75,7 +78,9 @@ enum PatchApplier {
         try? fileManager.removeItem(atPath: destExe)
         try fileManager.copyItem(atPath: patchExe, toPath: destExe)
 
-        guard let dataName = DiscImageInstaller.resolveActualName(in: patchDir, matching: "GAMEDATA", fileManager: fileManager) else {
+        guard let dataName = DiscImageInstaller.resolveActualName(
+            in: patchDir, matching: "GAMEDATA", fileManager: fileManager
+        ) else {
             return
         }
         let patchData = (patchDir as NSString).appendingPathComponent(dataName)

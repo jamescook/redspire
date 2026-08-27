@@ -14,6 +14,7 @@ enum SteamCMDCommandBuilder {
     static func command(appID: String, username: String, destDir: String) -> String {
         let trimmed = username.trimmingCharacters(in: .whitespaces)
         let user = trimmed.isEmpty ? "<your_steam_username>" : trimmed
-        return "steamcmd +@sSteamCmdForcePlatformType windows +force_install_dir \"\(destDir)\" +login \(user) +app_update \(appID) validate +quit"
+        return "steamcmd +@sSteamCmdForcePlatformType windows +force_install_dir \"\(destDir)\" +login \(user) "
+            + "+app_update \(appID) validate +quit"
     }
 }

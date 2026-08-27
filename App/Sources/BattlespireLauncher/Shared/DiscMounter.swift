@@ -18,7 +18,9 @@ enum DiscMounter {
     /// Pure: pulls the mount point out of `hdiutil attach -plist`'s output.
     static func parseMountPoint(fromHdiutilPlistOutput output: String) -> String? {
         guard let data = output.data(using: .utf8),
-              let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any],
+              let plist = try? PropertyListSerialization.propertyList(
+                  from: data, options: [], format: nil
+              ) as? [String: Any],
               let entities = plist["system-entities"] as? [[String: Any]]
         else {
             return nil
@@ -27,7 +29,10 @@ enum DiscMounter {
     }
 
     static func mount(_ isoPath: String, runner: ProcessRunning) throws -> String {
-        let result = runner.runSync(executable: "/usr/bin/hdiutil", arguments: ["attach", "-nobrowse", "-readonly", "-plist", isoPath])
+        let result = runner.runSync(
+            executable: "/usr/bin/hdiutil",
+            arguments: ["attach", "-nobrowse", "-readonly", "-plist", isoPath]
+        )
         guard result.exitCode == 0 else {
             throw MountError.mountFailed("hdiutil exited with status \(result.exitCode)")
         }
