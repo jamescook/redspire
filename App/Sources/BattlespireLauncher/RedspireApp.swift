@@ -63,6 +63,11 @@ struct RedspireApp: App {
     /// silently failed to hide the window in that exact case).
     static let mainWindowTitle = "Redspire"
 
+    // Deliberately just in-memory, not @AppStorage -- this is a one-off
+    // "flip to light mode for a screenshot" toggle, not a real appearance
+    // preference worth persisting across launches.
+    @State private var forcedColorScheme: ColorScheme?
+
     var body: some Scene {
         // Window (singular), not WindowGroup: WindowGroup can spawn a
         // SECOND window -- with its own independent GameSession -- when a
@@ -84,6 +89,7 @@ struct RedspireApp: App {
                         NotificationCenter.default.post(name: .requestDirectLaunch, object: mode)
                     }
                 }
+                .preferredColorScheme(forcedColorScheme)
         }
         .windowResizability(.contentSize)
         .commands {
@@ -92,6 +98,9 @@ struct RedspireApp: App {
                     NotificationCenter.default.post(name: .requestResetToDefaults, object: nil)
                 }
             }
+            CommandGroup(after: .toolbar) {
+                Button("Toggle Day/Night Mode") { toggleColorScheme() }
+            }
         }
 
         // A genuinely separate window rather than a .sheet, so it doesn't
@@ -99,12 +108,20 @@ struct RedspireApp: App {
         // key-window status the way sheet-modality can.
         Window("Setup Wizard", id: "onboarding-wizard") {
             OnboardingWizard()
+                .preferredColorScheme(forcedColorScheme)
         }
         .windowResizability(.contentSize)
 
         Window("Redguard Setup Wizard", id: "redguard-onboarding-wizard") {
             RedguardOnboardingWizard()
+                .preferredColorScheme(forcedColorScheme)
         }
         .windowResizability(.contentSize)
+    }
+
+    private func toggleColorScheme() {
+        let isCurrentlyDark = forcedColorScheme.map { $0 == .dark }
+            ?? (NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua)
+        forcedColorScheme = isCurrentlyDark ? .light : .dark
     }
 }
